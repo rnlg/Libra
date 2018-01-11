@@ -1,0 +1,455 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Mathematica 10.1' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       158,          7]
+NotebookDataLength[     20323,        446]
+NotebookOptionsPosition[     19351,        423]
+NotebookOutlinePosition[     19717,        438]
+CellTagsIndexPosition[     19674,        435]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+Cell[StyleData[StyleDefinitions -> "Default.nb"]],
+
+Cell[StyleData["Notebook"],
+ DockedCells->{
+   Cell[
+    BoxData[
+     DynamicModuleBox[{$CellContext`$PackageWriterSearchForm = ""}, 
+      GridBox[{{
+         GridBox[{{
+            DynamicModuleBox[{$CellContext`y$$ = {}}, 
+             DynamicBox[
+              ToBoxes[
+               EventHandler[
+                ActionMenu[
+                 Tooltip[
+                 "Functions", 
+                  "Functions list, based on \!\(\*\nStyleBox[\"function\",\n\
+FontSlant->\"Italic\"]\)::usage"], $CellContext`y$$, Appearance -> 
+                 "PopupMenu", FrameMargins -> 0], {
+                "MouseDown" :> ($CellContext`y$$ = (Join[
+                    Map[# :> NotebookFind[
+                    InputNotebook[], 
+                    StringJoin[#, "::usage"], All]& , 
+                    Sort[
+                    Intersection[#, {$CellContext`$PackageWriterSearchForm, 
+                    CurrentValue["SelectionData"]}]]], {Delimiter}, 
+                    Map[# :> NotebookFind[
+                    InputNotebook[], 
+                    StringJoin[#, "::usage"], All]& , 
+                    Sort[
+                    Complement[#, {$CellContext`$PackageWriterSearchForm, 
+                    CurrentValue["SelectionData"]}]]]]& )[
+                    Union[
+                    Cases[
+                    NotebookGet[
+                    InputNotebook[]], RowBox[{
+                    Pattern[$CellContext`x, 
+                    Blank[]], "::", "usage"}] :> ToString[$CellContext`x], 
+                    Infinity]]])}, PassEventsDown -> True], StandardForm], 
+              ImageSizeCache -> {90., {7., 18.}}], DynamicModuleValues :> {}], 
+            ActionMenuBox[
+            "\"Mark\"", {"\"Mark as Added\"" :> If[$Failed =!= CurrentValue[
+                  InputNotebook[], "SelectionData"], 
+                NotebookWrite[
+                 InputNotebook[], 
+                 RowBox[{
+                   RowBox[{"(*", "Added ", 
+                    DateString[Today, {"Day", ".", "Month", ".", "Year"}], 
+                    "*)"}], 
+                   CurrentValue[
+                    InputNotebook[], "SelectionData"], 
+                   RowBox[{"(*", 
+                    StringJoin["/", "Added "], 
+                    DateString[Today, {"Day", ".", "Month", ".", "Year"}], 
+                    "*)"}]}]]], "\"Mark as Modified\"" :> 
+              If[$Failed =!= CurrentValue[
+                  InputNotebook[], "SelectionData"], 
+                NotebookWrite[
+                 InputNotebook[], 
+                 RowBox[{
+                   RowBox[{"(*", "Modified ", 
+                    DateString[Today, {"Day", ".", "Month", ".", "Year"}], 
+                    "*)"}], 
+                   CurrentValue[
+                    InputNotebook[], "SelectionData"], 
+                   RowBox[{"(*", 
+                    StringJoin["/", "Modified "], 
+                    DateString[Today, {"Day", ".", "Month", ".", "Year"}], 
+                    "*)"}]}]]], "\"Mark as Deleted\"" :> 
+              If[$Failed =!= CurrentValue[
+                  InputNotebook[], "SelectionData"], 
+                NotebookWrite[
+                 InputNotebook[], 
+                 RowBox[{"(*", 
+                   RowBox[{"(*", "Deleted ", 
+                    DateString[Today, {"Day", ".", "Month", ".", "Year"}], 
+                    "*)"}], 
+                   CurrentValue[
+                    InputNotebook[], "SelectionData"], 
+                   RowBox[{"(*", 
+                    StringJoin["/", "Deleted "], 
+                    DateString[Today, {"Day", ".", "Month", ".", "Year"}], 
+                    "*)"}], "*)"}]]], "\"Remove comments\"" :> 
+              If[{} =!= NotebookRead[
+                  InputNotebook[]], 
+                NotebookWrite[
+                 InputNotebook[], 
+                 ReplaceAll[
+                  NotebookRead[
+                   InputNotebook[]], RowBox[{"(*", 
+                    BlankSequence[], "*)"}] :> RowBox[{}]]]]}, Appearance -> 
+             "PopupMenu", FrameMargins -> 0], 
+            ActionMenuBox["Highlight", {StyleBox[
+                
+                TemplateBox[{"\" \""}, "Row", 
+                 DisplayFunction -> (PaneBox[#, ImageSize -> {30, 10}]& ), 
+                 InterpretationFunction -> (RowBox[{"Row", "[", 
+                    RowBox[{
+                    RowBox[{"{", #, "}"}], ",", 
+                    RowBox[{"ImageSize", "\[Rule]", 
+                    RowBox[{"{", 
+                    RowBox[{"30", ",", "10"}], "}"}]}]}], "]"}]& )], 
+                Background -> RGBColor[1, 0, 0]] :> SetOptions[
+                NotebookSelection[
+                 InputNotebook[]], Background -> RGBColor[1, 0, 0]], StyleBox[
+                
+                TemplateBox[{"\" \""}, "Row", 
+                 DisplayFunction -> (PaneBox[#, ImageSize -> {30, 10}]& ), 
+                 InterpretationFunction -> (RowBox[{"Row", "[", 
+                    RowBox[{
+                    RowBox[{"{", #, "}"}], ",", 
+                    RowBox[{"ImageSize", "\[Rule]", 
+                    RowBox[{"{", 
+                    RowBox[{"30", ",", "10"}], "}"}]}]}], "]"}]& )], 
+                Background -> RGBColor[1, 0.5, 0]] :> SetOptions[
+                NotebookSelection[
+                 InputNotebook[]], Background -> RGBColor[1, 0.5, 0]], 
+              StyleBox[
+                
+                TemplateBox[{"\" \""}, "Row", 
+                 DisplayFunction -> (PaneBox[#, ImageSize -> {30, 10}]& ), 
+                 InterpretationFunction -> (RowBox[{"Row", "[", 
+                    RowBox[{
+                    RowBox[{"{", #, "}"}], ",", 
+                    RowBox[{"ImageSize", "\[Rule]", 
+                    RowBox[{"{", 
+                    RowBox[{"30", ",", "10"}], "}"}]}]}], "]"}]& )], 
+                Background -> RGBColor[1, 1, 0]] :> SetOptions[
+                NotebookSelection[
+                 InputNotebook[]], Background -> RGBColor[1, 1, 0]], StyleBox[
+                
+                TemplateBox[{"\" \""}, "Row", 
+                 DisplayFunction -> (PaneBox[#, ImageSize -> {30, 10}]& ), 
+                 InterpretationFunction -> (RowBox[{"Row", "[", 
+                    RowBox[{
+                    RowBox[{"{", #, "}"}], ",", 
+                    RowBox[{"ImageSize", "\[Rule]", 
+                    RowBox[{"{", 
+                    RowBox[{"30", ",", "10"}], "}"}]}]}], "]"}]& )], 
+                Background -> RGBColor[0, 1, 0]] :> SetOptions[
+                NotebookSelection[
+                 InputNotebook[]], Background -> RGBColor[0, 1, 0]], StyleBox[
+                
+                TemplateBox[{"\" \""}, "Row", 
+                 DisplayFunction -> (PaneBox[#, ImageSize -> {30, 10}]& ), 
+                 InterpretationFunction -> (RowBox[{"Row", "[", 
+                    RowBox[{
+                    RowBox[{"{", #, "}"}], ",", 
+                    RowBox[{"ImageSize", "\[Rule]", 
+                    RowBox[{"{", 
+                    RowBox[{"30", ",", "10"}], "}"}]}]}], "]"}]& )], 
+                Background -> RGBColor[0, 1, 1]] :> SetOptions[
+                NotebookSelection[
+                 InputNotebook[]], Background -> RGBColor[0, 1, 1]], StyleBox[
+                
+                TemplateBox[{"\" \""}, "Row", 
+                 DisplayFunction -> (PaneBox[#, ImageSize -> {30, 10}]& ), 
+                 InterpretationFunction -> (RowBox[{"Row", "[", 
+                    RowBox[{
+                    RowBox[{"{", #, "}"}], ",", 
+                    RowBox[{"ImageSize", "\[Rule]", 
+                    RowBox[{"{", 
+                    RowBox[{"30", ",", "10"}], "}"}]}]}], "]"}]& )], 
+                Background -> RGBColor[0, 0, 1]] :> SetOptions[
+                NotebookSelection[
+                 InputNotebook[]], Background -> RGBColor[0, 0, 1]], StyleBox[
+                
+                TemplateBox[{"\" \""}, "Row", 
+                 DisplayFunction -> (PaneBox[#, ImageSize -> {30, 10}]& ), 
+                 InterpretationFunction -> (RowBox[{"Row", "[", 
+                    RowBox[{
+                    RowBox[{"{", #, "}"}], ",", 
+                    RowBox[{"ImageSize", "\[Rule]", 
+                    RowBox[{"{", 
+                    RowBox[{"30", ",", "10"}], "}"}]}]}], "]"}]& )], 
+                Background -> RGBColor[1, 0, 1]] :> SetOptions[
+                NotebookSelection[
+                 InputNotebook[]], Background -> RGBColor[1, 0, 1]], 
+              "\"clear style\"" :> SetOptions[
+                NotebookSelection[
+                 InputNotebook[]], Background -> None]}, FrameMargins -> 0, 
+             ImageMargins -> 0], 
+            GridBox[{{
+               GridBox[{{
+                  DynamicModuleBox[{$CellContext`x$$ = {}}, 
+                   DynamicBox[
+                    ToBoxes[
+                    EventHandler[
+                    ActionMenu[
+                    "\[Checkmark]/\[Times] \[FilledSmallCircle]", \
+$CellContext`x$$, Appearance -> "Frameless", ContentPadding -> False, 
+                    ImageSize -> {35, 9}, FrameMargins -> 0, ImageMargins -> 
+                    0], {"MouseDown" :> (SelectionMove[
+                    InputNotebook[], All, Cell]; If[{} === NotebookRead[
+                    
+                    InputNotebook[]], $CellContext`x$$ = {}, $CellContext`x$$ = \
+(Join[
+                    Map[
+                    
+                    Function[$CellContext`t, 
+                    StringJoin["    ", $CellContext`t] :> (
+                    MathLink`CallFrontEnd[
+                    FrontEnd`SelectionAddCellTags[
+                    InputNotebook[], $CellContext`t]]; SetOptions[
+                    NotebookSelection[
+                    InputNotebook[]], ShowCellTags -> True])], 
+                    
+                    Complement[{$CellContext`$PackageWriterSearchForm, 
+                    "\[FilledSmallCircle]1", "\[FilledSmallCircle]2", 
+                    "\[FilledSmallCircle]3", "\[FilledSmallCircle]4", 
+                    "\[FilledSmallCircle]5", "\[FilledSmallCircle]6", 
+                    "\[FilledSmallCircle]7", "\[FilledSmallCircle]8", 
+                    "\[FilledSmallCircle]9"}, #]], {Delimiter}, 
+                    Map[
+                    StringJoin["\[Checkmark] ", #] :> MathLink`CallFrontEnd[
+                    FrontEnd`SelectionRemoveCellTags[
+                    InputNotebook[], #]]& , #]]& )[
+                    Flatten[{
+                    ReplaceAll[CellTags, 
+                    Options[
+                    NotebookSelection[], CellTags]]}]]])}, PassEventsDown -> 
+                    True], StandardForm], ImageSizeCache -> {44., {2., 10.}}],
+                    DynamicModuleValues :> {}]}, {
+                  DynamicModuleBox[{$CellContext`x$$ = {}}, 
+                   DynamicBox[
+                    ToBoxes[
+                    EventHandler[
+                    ActionMenu[
+                    "    > \[FilledSmallCircle]", $CellContext`x$$, 
+                    Appearance -> "Frameless", ContentPadding -> False, 
+                    ImageSize -> {35, 9}, FrameMargins -> 0, ImageMargins -> 
+                    0], {"MouseDown" :> ($CellContext`x$$ = 
+                    Map[# :> NotebookLocate[#]& , 
+                    MathLink`CallFrontEnd[
+                    FrontEnd`GetCellTagsPacket[
+                    InputNotebook[]]]])}, PassEventsDown -> True], 
+                    StandardForm], ImageSizeCache -> {44., {3., 9.}}], 
+                   DynamicModuleValues :> {}]}}, 
+                GridBoxAlignment -> {
+                 "Columns" -> {Right}, "Rows" -> {Top, Bottom}}, 
+                GridBoxSpacings -> {"Rows" -> {{0}}}], 
+               InputFieldBox[
+                Dynamic[$CellContext`$PackageWriterSearchForm], String, 
+                FieldHint -> "Search", FieldSize -> Scaled[0.005]], 
+               ButtonBox[
+               "\"<\"", Appearance -> Automatic, ButtonFunction :> 
+                NotebookFind[
+                  InputNotebook[], $CellContext`$PackageWriterSearchForm, 
+                  Previous], Evaluator -> Automatic, FrameMargins -> 0, 
+                ImageMargins -> 0, ImageSize -> Small, Method -> 
+                "Preemptive"], 
+               ButtonBox[
+               "\">\"", Appearance -> Automatic, ButtonFunction :> 
+                NotebookFind[
+                  InputNotebook[], $CellContext`$PackageWriterSearchForm], 
+                Evaluator -> Automatic, FrameMargins -> 0, ImageMargins -> 0, 
+                ImageSize -> Small, Method -> "Preemptive"]}}, AutoDelete -> 
+             False, GridBoxAlignment -> {
+              "Columns" -> {Right}, "Rows" -> {Top, Bottom}}, 
+             GridBoxItemSize -> {
+              "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}, 
+             GridBoxSpacings -> {"Columns" -> {{0}}, "Rows" -> {{0}}}]}}, 
+          GridBoxAlignment -> {"Rows" -> {Top}}, 
+          GridBoxSpacings -> {"Columns" -> {{0}}, "Rows" -> {{0}}}], 
+         GridBox[{{
+            ButtonBox[
+             TooltipBox[
+             "\"Init\"", "\"Locate initialization cells\"", TooltipStyle -> 
+              "TextStyling"], Appearance -> "FramedPalette", ButtonFunction :> 
+             Module[{$CellContext`cells = Cells[
+                  InputNotebook[]], $CellContext`tags, $CellContext`tag = 
+                "Init", $CellContext`i = 0}, $CellContext`tags = Union[
+                  Flatten[
+                   ReplaceAll[CellTags, 
+                    Map[Options[#, CellTags]& , $CellContext`cells]]]]; While[
+                 MemberQ[$CellContext`tags, 
+                  StringJoin[$CellContext`tag, 
+                   ToString[$CellContext`i]]], 
+                 Increment[$CellContext`i]]; $CellContext`tag = 
+                StringJoin[$CellContext`tag, 
+                  ToString[$CellContext`i]]; Map[If[
+                  TrueQ[
+                   ReplaceAll[InitializationCell, 
+                    Options[#]]], 
+                  SetOptions[#, CellTags -> Flatten[{
+                    ReplaceAll[CellTags, 
+                    
+                    Options[#, 
+                    CellTags]], $CellContext`tag}]]]& , $CellContext`cells]; 
+               NotebookLocate[$CellContext`tag]; 
+               Map[SetOptions[#, CellTags -> Complement[
+                    Flatten[{
+                    ReplaceAll[CellTags, 
+                    Options[#, CellTags]]}], {$CellContext`tag}]]& , 
+                 Cells[
+                  NotebookSelection[]]]; Null], Evaluator -> Automatic, 
+             Method -> "Preemptive"],
+            ButtonBox[
+             TooltipBox[
+             "\"Clean\"", "\"Delete All Output\"", TooltipStyle -> 
+              "TextStyling"], Appearance -> "FramedPalette", ButtonFunction :> 
+             FrontEndTokenExecute["DeleteGeneratedCells"], Evaluator -> 
+             Automatic, FrameMargins -> 1, ImageMargins -> 0, Method -> 
+             "Preemptive"],  
+            ButtonBox[
+             TooltipBox[
+             "\"Eval\"", "\"Execute and select next\"", TooltipStyle -> 
+              "TextStyling"], Appearance -> "FramedPalette", 
+             ButtonFunction :> (FrontEndTokenExecute["EvaluateCells"]; 
+              SelectionMove[
+                InputNotebook[], Next, Cell]), Evaluator -> Automatic, 
+             FrameMargins -> 1, ImageMargins -> 0, Method -> "Preemptive"], 
+            ButtonBox[
+             TooltipBox[
+             "\"Find\"", "\"Find  currently evaluating cell\"", TooltipStyle -> 
+              "TextStyling"], Appearance -> "FramedPalette", ButtonFunction :> 
+             FrontEndTokenExecute["FindEvaluatingCell"], Evaluator -> 
+             Automatic, FrameMargins -> 1, ImageMargins -> 0, Method -> 
+             "Preemptive"], 
+            ButtonBox[
+            "\"Abort\"", Appearance -> "FramedPalette", 
+             ButtonFunction :> (FrontEndTokenExecute["FindEvaluatingCell"]; 
+              FrontEndTokenExecute["EvaluatorAbort"]), Evaluator -> Automatic,
+              FrameMargins -> 1, ImageMargins -> 0, Method -> "Preemptive"], 
+            ButtonBox[
+            "\"Quit\"", Appearance -> "FramedPalette", ButtonFunction :> 
+             Quit[], Evaluator -> Automatic, FrameMargins -> 1, ImageMargins -> 
+             0, Method -> "Queued"], 
+            ButtonBox[
+            "\" ? \"", Appearance -> "FramedPalette", ButtonFunction :> 
+             MessageDialog["This style is created by Roman Lee."], Evaluator -> 
+             Automatic, FrameMargins -> 2, Method -> "Preemptive"]}}, 
+          AutoDelete -> False, 
+          GridBoxItemSize -> {
+           "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}, 
+          GridBoxSpacings -> {"Columns" -> {{0.2}}}]}}, 
+       GridBoxAlignment -> {
+        "Columns" -> {Left, Right}, "Rows" -> {Top, Bottom}}, 
+       GridBoxItemSize -> {"Columns" -> {
+           Scaled[0.7], 
+           Scaled[0.3]}}, GridBoxSpacings -> {"Rows" -> {{0}}}]]], 
+    CellFrame -> {{0, 0}, {1, 0}}, CellMargins -> 0, Deployed -> True, 
+    GeneratedCell -> True, CellAutoOverwrite -> True, 
+    CellFrameMargins -> {{0, 0}, {0, 0}}, 
+    CellChangeTimes -> {3.5499259804031715`*^9}, Background -> 
+    RGBColor[0.9686274509803922, 0.9686274509803922, 0.9686274509803922]]}],
+
+Cell[StyleData["Section"],
+ CellFrame->{{0, 0}, {0, 2}},
+ CellMargins->{{20, Inherited}, {8, 34}},
+ CellFrameMargins->3,
+ FontColor->RGBColor[0.4, 0.2, 0.],
+ Background->None],
+
+Cell[StyleData["Subsection"],
+ CellFrame->{{0, 0}, {0, 0}},
+ CellDingbat->None,
+ CellMargins->{{33, Inherited}, {8, 12}},
+ CellFrameMargins->0,
+ FontColor->RGBColor[0.3254901960784314, 0.1607843137254902, 0.],
+ Background->None],
+
+Cell[StyleData["Subsubsection"],
+ CellFrame->{{0, 0}, {0, 0}},
+ CellDingbat->None,
+ CellMargins->{{46, Inherited}, {2, 10}},
+ CellFrameMargins->0,
+ Background->None],
+
+Cell[StyleData["Input"],
+ CellFrame->True,
+ CellMargins->{{60, 10}, {5, 10}},
+ CellFrameColor->RGBColor[0.968627, 0.701961, 0.0235294],
+ Background->RGBColor[
+  0.9686274509803922, 0.9019607843137255, 0.7294117647058823]],
+
+Cell[StyleData["Code"],
+ PageWidth->WindowWidth,
+ CellFrame->True,
+ CellMargins->{{60, 10}, {10, 10}},
+ CellFrameColor->RGBColor[0.0784314, 0.333333, 0.980392],
+ AutoIndent->Automatic,
+ AutoSpacing->True,
+ LineBreakWithin->Automatic,
+ LineIndent->1,
+ LinebreakAdjustments->{0.85, 2, 10, 0, 1},
+ Background->RGBColor[0.823529, 0.866667, 0.996078]],
+
+Cell[StyleData["Output"],
+ CellFrame->True,
+ CellMargins->{{60, 10}, {10, 5}},
+ CellFrameColor->RGBColor[0.9, 0.7, 0.75],
+ Background->RGBColor[1., 0.92, 1.]],
+
+Cell[StyleData["Text"],
+ CellMargins->{{60, 10}, {7, 7}}],
+
+Cell[StyleData["Item"],
+ CellMargins->{{75, 10}, {4, 8}}],
+
+Cell[StyleData["Subitem"],
+ CellMargins->{{100, 12}, {4, 4}}]
+},
+WindowSize->{1366, 685},
+WindowMargins->{{-8, Automatic}, {Automatic, -8}},
+FrontEndVersion->"10.0 for Microsoft Windows (64-bit) (December 4, 2014)",
+StyleDefinitions->"PrivateStylesheetFormatting.nb"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[558, 20, 49, 0, 40, 49, 0, "StyleData", "StyleDefinitions", ""],
+Cell[610, 22, 17242, 343, 40, 27, 0, "StyleData", "Notebook", "All"],
+Cell[17855, 367, 175, 5, 96, 26, 0, "StyleData", "Section", "All"],
+Cell[18033, 374, 228, 6, 52, 29, 0, "StyleData", "Subsection", "All"],
+Cell[18264, 382, 165, 5, 45, 32, 0, "StyleData", "Subsubsection", "All"],
+Cell[18432, 389, 221, 5, 57, 24, 0, "StyleData", "Input", "All"],
+Cell[18656, 396, 346, 10, 68, 23, 0, "StyleData", "Code", "All"],
+Cell[19005, 408, 158, 4, 63, 25, 0, "StyleData", "Output", "All"],
+Cell[19166, 414, 57, 1, 47, 23, 0, "StyleData", "Text", "All"],
+Cell[19226, 417, 57, 1, 45, 23, 0, "StyleData", "Item", "All"],
+Cell[19286, 420, 61, 1, 41, 26, 0, "StyleData", "Subitem", "All"]
+}
+]
+*)
+
+(* End of internal cache information *)

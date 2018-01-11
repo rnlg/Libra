@@ -1,0 +1,276 @@
+#LyX 2.2 created this file. For more info see http://www.lyx.org/
+\lyxformat 508
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\begin_preamble
+\usepackage{commath} %upright differential sing \dif
+\usepackage{fancyhdr}
+\end_preamble
+\use_default_options false
+\begin_modules
+customHeadersFooters
+theorems-ams
+\end_modules
+\maintain_unincluded_children false
+\language russian
+\language_package babel
+\inputencoding auto
+\fontencoding default
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize a4paper
+\use_geometry true
+\use_package amsmath 2
+\use_package amssymb 2
+\use_package cancel 0
+\use_package esint 1
+\use_package mathdots 0
+\use_package mathtools 0
+\use_package mhchem 0
+\use_package stackrel 0
+\use_package stmaryrd 0
+\use_package undertilde 0
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation landscape
+\suppress_date false
+\justification true
+\use_refstyle 0
+\branch hidden
+\selected 1
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch stub
+\selected 1
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\leftmargin 5mm
+\topmargin 2cm
+\rightmargin 5mm
+\bottommargin 5mm
+\headheight 1cm
+\headsep 1cm
+\footskip 1cm
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language french
+\papercolumns 1
+\papersides 1
+\paperpagestyle fancy
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Address
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%
+\end_layout
+
+\end_inset
+
+
+\begin_inset FormulaMacro
+\newcommand{\dif}{\dif}
+{\mathrm{d}}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Title
+Связи между интегралами
+\end_layout
+
+\begin_layout Author
+Роман Ли
+\end_layout
+
+\begin_layout Address
+\begin_inset Branch hidden
+status collapsed
+
+\begin_layout Address
+
+\size footnotesize
+\color purple
+\begin_inset Info
+type  "buffer"
+arg   "path"
+\end_inset
+
+
+\begin_inset Info
+type  "buffer"
+arg   "name"
+\end_inset
+
+
+\end_layout
+
+\begin_layout Left Header
+\begin_inset Info
+type  "buffer"
+arg   "path"
+\end_inset
+
+
+\begin_inset Info
+type  "buffer"
+arg   "name"
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+В методе дифференциальных уравнений столбец мастер-интегралов удовлетворяет
+ уравнению
+\begin_inset Formula 
+\[
+\partial J=MJ
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Довольно часто оказывается, что некоторые мастера связаны, т.е.
+\begin_inset Formula 
+\[
+C^{T}J=0,
+\]
+
+\end_inset
+
+где 
+\begin_inset Formula $C$
+\end_inset
+
+ — рациональные коэффициенты.
+ Это может являться, например, следствием неполного приведения (или недоучёта
+ симметрий, что то же самое).
+ Сначала, мы хотим понять, как проверить, совместна ли такая связь с уравнениями.
+ Дифференцируем и получаем
+\begin_inset Formula 
+\[
+\left(\partial C^{T}+C^{T}M\right)J=0.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Связь во всяком случае совместна, если 
+\begin_inset Formula $\partial C^{T}+C^{T}M=0$
+\end_inset
+
+.
+ Если же это не ноль, то это новая связь 
+\begin_inset Formula $C_{1}=M^{T}C+\partial C.$
+\end_inset
+
+ Действуя аналогичным образом, мы получаем множество связей, каждая из которых
+ удовлетворяет
+\begin_inset Formula 
+\[
+M^{T}C_{i}+\partial C_{i}=A_{ij}C_{j}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+То есть, формально любая связь совместна с уравнением, но приводит в общем
+ случае к куче соотношений.
+\end_layout
+
+\begin_layout Standard
+Таким образом, вопрос о совместности может стоять только как 
+\begin_inset Quotes fld
+\end_inset
+
+есть или нет дополнительные соотношения, которые следуют из связи 
+\begin_inset Formula $C$
+\end_inset
+
+
+\begin_inset Quotes frd
+\end_inset
+
+.
+ Аналогично, если мы хотим находить возможные связи из уравнения, вопрос
+ может стоять только так 
+\begin_inset Quotes fld
+\end_inset
+
+есть ли связи — синглтоны
+\begin_inset Quotes frd
+\end_inset
+
+, т.е., есть ли рациональные решения сопряжённой системы
+\begin_inset Formula 
+\[
+\partial C=-M^{T}C.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Наверное, такие решения можно искать алгоритмически.
+\end_layout
+
+\end_body
+\end_document

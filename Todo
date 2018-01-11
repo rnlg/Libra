@@ -1,0 +1,9 @@
+Syntax change: VisBalancing[b, x, ep,{points}] ----> VisBalancing[b, {x,{points}}, ep]
+
+VisBalancing: fix blocking buttons for nonfuchsian 
+
+Denominators[<|...|>]
+VisBalancing[<|...|>]
+
+
+Check HistoryChop in Transform in the very beginning
