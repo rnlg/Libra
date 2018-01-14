@@ -19,6 +19,21 @@
 
 
 
+System`PartitionByLengths::usage="PartitionByLengths[list,lengths] splits lest into chunks of the given leghts.\nExample:PartitionByLengths[{a,b,c,d,e,f},{3,1,2}] \[LongRightArrow] {{a,b,c},{d},{e,f}}";
+
+
+System`PartitionByLengths[a_List,b_List]:=Module[{es=Accumulate[b],bs},
+bs=Prepend[Most@es+1,1];
+Take[a,#]&/@Transpose[{bs,es}]
+]
+
+
+System`ShuffleProduct::usage="ShuffleProduct[l1,l2] implements the shuffle product, e.g., ShuffleProduct[{a,b},{c,d}] \[LongRightArrow] {{a,b,c,d},{a,c,b,d},{a,c,d,b},{c,a,b,d},{c,a,d,b},{c,d,a,b}}.";
+
+
+System`ShuffleProduct[a_List,b_List]:=Module[{chrs=Join[a,b],nums},nums=Range[Length[chrs]];Join@(Permute[chrs,#])&/@(Join[#,Complement[nums,#]]&/@Subsets[nums,{Length[Characters[a]]}])]
+
+
 BeginPackage["Libra`"]
 
 
@@ -110,13 +125,17 @@ RadicalsUp;
 HistoryCheck;HistoryChop;
 
 
+PexpExpansion;
 II;Protect[II];
 II::usage="II[{\!\(\*SubscriptBox[\(a\), \(n\)]\),\!\(\*SubscriptBox[\(a\), \(n - 1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]a\), \(1\)]\)},x] denotes iterated integral, \!\(\*FormBox[\(II[{\*SubscriptBox[\(a\), \(n\)], \*SubscriptBox[\(a\), \(n - 1\)], \*SubscriptBox[\(\[Ellipsis]a\), \(1\)]}, x] = \(\*UnderscriptBox[\(\[Integral]\[Ellipsis] \[Integral]\), \(\*SubscriptBox[\(x\), \(0\)] < \*SubscriptBox[\(x\), \(1\)] < \*SubscriptBox[\(\[Ellipsis]x\), \(n\)] < x\)] \*FractionBox[\(\[DifferentialD]\*SubscriptBox[\(x\), \(n\)]\), \(\*SubscriptBox[\(x\), \(n\)] - \*SubscriptBox[\(a\), \(n\)]\)] \(\[Ellipsis]\) \*FractionBox[\(\[DifferentialD]\*SubscriptBox[\(x\), \(1\)]\), \(\*SubscriptBox[\(x\), \(1\)] - \*SubscriptBox[\(a\), \(1\)]\)]\(\\\ \)\)\),
 TraditionalForm]\), where \!\(\*FormBox[SubscriptBox[\(x\), \(0\)],
 TraditionalForm]\) is arbitrary (with convention II[{},x]=1). II[{\!\(\*SubscriptBox[\(a\), \(n\)]\),\!\(\*SubscriptBox[\(a\), \(n - 1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]a\), \(1\)]\)},x,\!\(\*SubscriptBox[\(x\), \(0\)]\)] specifies \!\(\*SubscriptBox[\(x\), \(0\)]\). By definition, II[{\!\(\*SubscriptBox[\(x\), \(0\)]\),\[Ellipsis],\!\(\*SubscriptBox[\(x\), \(0\)]\)},x,\!\(\*SubscriptBox[\(x\), \(0\)]\)]=Log[x-\!\(\*SubscriptBox[\(x\), \(0\)]\)\!\(\*SuperscriptBox[\(]\), \(n\)]\)/n!."
 
 
-SeriesSolutionData;ConstructSeriesSolution;Pexp;
+SeriesSolutionData;ConstructSeriesSolution;
+
+
+FactorLeadingLetter;FactorTrailingLetter;
 
 
 Begin["`Private`"]
@@ -760,16 +779,15 @@ If[So,ArrayFlatten[{sdata}],Plus@@sdata]
 ]
 
 
-Pexp::usage="Pexp[{M,n},x] gives the perturbative expansion of the \!\(\*FormBox[\(Pexp[\[Integral]dx\\\ M]\),
+PexpExpansion::usage="PexpExpansion[{M,n},x] gives the perturbative expansion of the \!\(\*FormBox[\(Pexp[\[Integral]dx\\\ M]\),
 TraditionalForm]\) in \!\(\*FormBox[\(M\),
 TraditionalForm]\) up to the term \!\(\*FormBox[\(\(\[Proportional]\)\*SuperscriptBox[\(M\), \(n\)]\),
-TraditionalForm]\) in terms of the iterated integrals \!\(\*FormBox[\(II[{\*SubscriptBox[\(a\), \(n\)], \*SubscriptBox[\(a\), \(n - 1\)], \*SubscriptBox[\(\[Ellipsis]a\), \(1\)]}, x] = \(\*UnderscriptBox[\(\[Integral]\[Ellipsis] \[Integral]\), \(\*SubscriptBox[\(x\), \(0\)] < \*SubscriptBox[\(x\), \(1\)] < \*SubscriptBox[\(\[Ellipsis]x\), \(n\)] < x\)] \*FractionBox[\(\[DifferentialD]\*SubscriptBox[\(x\), \(n\)]\), \(\*SubscriptBox[\(x\), \(n\)] - \*SubscriptBox[\(a\), \(n\)]\)] \(\[Ellipsis]\) \*FractionBox[\(\[DifferentialD]\*SubscriptBox[\(x\), \(1\)]\), \(\*SubscriptBox[\(x\), \(1\)] - \*SubscriptBox[\(a\), \(1\)]\)]\(\\\ \)\)\),
+TraditionalForm]\) via the iterated integrals \!\(\*FormBox[\(II[{\*SubscriptBox[\(a\), \(n\)], \*SubscriptBox[\(a\), \(n - 1\)], \*SubscriptBox[\(\[Ellipsis]a\), \(1\)]}, x] = \(\*UnderscriptBox[\(\[Integral]\[Ellipsis] \[Integral]\), \(\*SubscriptBox[\(x\), \(0\)] < \*SubscriptBox[\(x\), \(1\)] < \*SubscriptBox[\(\[Ellipsis]x\), \(n\)] < x\)] \*FractionBox[\(\[DifferentialD]\*SubscriptBox[\(x\), \(n\)]\), \(\*SubscriptBox[\(x\), \(n\)] - \*SubscriptBox[\(a\), \(n\)]\)] \(\[Ellipsis]\) \*FractionBox[\(\[DifferentialD]\*SubscriptBox[\(x\), \(1\)]\), \(\*SubscriptBox[\(x\), \(1\)] - \*SubscriptBox[\(a\), \(1\)]\)]\(\\\ \)\)\),
 TraditionalForm]\), where \!\(\*FormBox[SubscriptBox[\(x\), \(0\)],
-TraditionalForm]\) is arbitrary (\!\(\*FormBox[\(with\\\ convention\\\ II[{}, x] = 1\),
-TraditionalForm]\))."
+TraditionalForm]\) is arbitrary. The result is the list of successive terms."
 
 
-Pexp[{M_?MatrixQ,n_Integer},x_Symbol]:=Module[{p=PolesInfo[M,x],op,res,w,i=0,t},
+PexpExpansion[{M_?MatrixQ,n_Integer},x_Symbol]:=Module[{p=PolesInfo[M,x],op,res,w,i=0,t},
 If[Not[MatchQ[p,{{_,0}...}]],Abort[]];
 p=DeleteCases[First/@p,\[Infinity]];
 op=Plus@@(SeriesCoefficient[M,{x,#,-1}]w[#]&/@p); (*operator*)
@@ -779,13 +797,25 @@ i]
 ]
 
 
-Pexp[{M_?MatrixQ,n_Integer},x_Symbol,x0_]:=Module[{p=PolesInfo[M,x],op,res,w,i=0,t},
+PexpExpansion[{M_?MatrixQ,n_Integer},x_Symbol,x0_]:=Module[{p=PolesInfo[M,x],op,res,w,i=0,t},
 If[Not[MatchQ[p,{{_,0}...}]],Abort[]];
 p=DeleteCases[First/@p,\[Infinity]];
 op=Plus@@(SeriesCoefficient[M,{x,#,-1}]w[#]&/@p); (*operator*)
 Monitor[
 res=NestList[Function[pr,i++;t=Expand[op.pr];Plus@@((Coefficient[t,w[#]]/.{II[{a___},x,x0]:>II[{#,a},x,x0]})&/@p)],IdentityMatrix[Length@M]*II[{},x,x0],n],
 i]
+]
+
+
+FactorLeadingLetter[expr_,l_]:=Module[{r},
+r={II[{ls:(l)..,b1:Except[l],bs___},x_]:>II[{ls},x]II[{b1,bs},x]-Plus@@(II[#,x]&/@Rest[ShuffleProduct[{ls},{b1,bs}]]),II[ls:{(l)..},x_]:>II[{l},x]^Length[ls]/Length[ls]!};
+expr//.r
+]
+
+
+FactorTrailingLetter[expr_,l_]:=Module[{r},
+r={II[{bs___,b1:Except[l],ls:(l)..},x_]:>II[{bs,b1},x]II[{ls},x]-Plus@@(II[#,x]&/@Rest[ShuffleProduct[{b1,bs},{ls}]]),II[ls:{(l)..},x_]:>II[{l},x]^Length[ls]/Length[ls]!};
+expr//.r
 ]
 
 
@@ -1306,27 +1336,6 @@ PolesInfo[ds_Association,x_Symbol]:=PolesInfo[ds[x],x]
 PolesInfo[ds_?DSystemQ,x_Symbol]:=PolesInfo[ds[x],x]
 
 
-ker=Function[m,If[#==={},{ConstantArray[0,Length@m]},#]&[NullSpace[m]]];
-im=ker@*ker@*Transpose;
-
-
-bjf::usage="bjf[\!\(\*
-StyleBox[\"A\", \"TI\"]\),\!\(\*
-StyleBox[\"B\", \"TI\"]\),\!\(\*
-StyleBox[\"k\", \"TI\"]\)] constructs block matrix of the form ({
- {A, B, 0},
- {0, A, B},
- {0, 0, A}
-}) where \!\(\*
-StyleBox[\"A\", \"TI\"]\) is repeated \!\(\*
-StyleBox[\"k\", \"TI\"]\)\!\(\*
-StyleBox[\" \", \"TI\"]\)times. In particular, blockMatrix[\[Lambda],1,\!\(\*
-StyleBox[\"k\", \"TI\"]\)] gives \!\(\*
-StyleBox[\"k\", \"TI\"]\)*\!\(\*
-StyleBox[\"k\", \"TI\"]\) Jordan cell.";
-bjf[a_,b_,k_Integer]:=Module[{ap,bp},ArrayFlatten[IdentityMatrix[k]*ap+Rest[Transpose[IdentityMatrix[{k,k+1}]]]*bp/.{ap->a,bp->b}]];
-
-
 FactorPlus::usage="FactorPlus[expr] factors expr iff it has head \"Plus\"";
 
 
@@ -1350,13 +1359,25 @@ Factors::usage="Factors[expr] returns the list of expr factors not trying to fac
 Factors[expr_]:=Replace[Replace[{expr},Times->Sequence,{2},Heads->True],{x_^n_Integer:>{x,n},x_:>{x,1}},{1}]
 
 
-System`PartitionByLengths::usage="PartitionByLengths[list,lengths] splits lest into chunks of the given leghts.\nExample:PartitionByLengths[{a,b,c,d,e,f},{3,1,2}] \[LongRightArrow] {{a,b,c},{d},{e,f}}";
+ker=Function[m,If[#==={},{ConstantArray[0,Length@m]},#]&[NullSpace[m]]];
+im=ker@*ker@*Transpose;
 
 
-System`PartitionByLengths[a_List,b_List]:=Module[{es=Accumulate[b],bs},
-bs=Prepend[Most@es+1,1];
-Take[a,#]&/@Transpose[{bs,es}]
-]
+bjf::usage="bjf[\!\(\*
+StyleBox[\"A\", \"TI\"]\),\!\(\*
+StyleBox[\"B\", \"TI\"]\),\!\(\*
+StyleBox[\"k\", \"TI\"]\)] constructs block matrix of the form ({
+ {A, B, 0},
+ {0, A, B},
+ {0, 0, A}
+}) where \!\(\*
+StyleBox[\"A\", \"TI\"]\) is repeated \!\(\*
+StyleBox[\"k\", \"TI\"]\)\!\(\*
+StyleBox[\" \", \"TI\"]\)times. In particular, blockMatrix[\[Lambda],1,\!\(\*
+StyleBox[\"k\", \"TI\"]\)] gives \!\(\*
+StyleBox[\"k\", \"TI\"]\)*\!\(\*
+StyleBox[\"k\", \"TI\"]\) Jordan cell.";
+bjf[a_,b_,k_Integer]:=Module[{ap,bp},ArrayFlatten[IdentityMatrix[k]*ap+Rest[Transpose[IdentityMatrix[{k,k+1}]]]*bp/.{ap->a,bp->b}]];
 
 
 CellPrint[Cell["TODO list:", "Text", CellFrame->{{0, 0}, {0, 1}}]];
