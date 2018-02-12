@@ -65,7 +65,7 @@ Transform;ChangeVar;
 TClosure;
 
 
-Denominators;PolesPosition;PoleOrder;PolesInfo;
+Denominators;PolesPosition;PolesInfo;
 
 
 DiagonalQ;
@@ -101,7 +101,7 @@ System`PartitionByLengths;
 Balance;VisBalancing;
 
 
-A0ToSubspaces;A0A1ToSubspaces;Projector;
+A0ToSubspaces;A0A1ToSubspaces;GetSubspaces;Projector;
 
 
 FactorOut;FactorDependence;
@@ -117,6 +117,9 @@ DenominatorOrder;
 
 
 BlockTriangularToFuchsian;
+
+
+BTSolve;
 
 
 RadicalsUp;
@@ -616,7 +619,7 @@ StyleBox[\"matrix\", \"TI\"]\),\!\(\*
 StyleBox[\"index\", \"TI\"]\)] gives a list of indices of all dependent columns";
 
 
-DependentColumnIndices[m_,args__]:=DependentRowIndices[Transpose[m],args]
+DependentColumnIndices[m_,args__]:=DependentRowIndices[Transpose[TClosure[m]],args]
 
 
 InvertBlockTriangular::usage="InvertBlockTriangular[m] is an optimized version of Inverse[m] for block-triangular matrices.";
@@ -693,7 +696,7 @@ SeriesCoefficient[series,{x,x0,#}]&/@Range[n,n+k]
 ]
 
 
-LeadingOrder::usage="LeadingOrder[expr,{x,x0}] gives the leading order of expansion in x."
+LeadingOrder::usage="LeadingOrder[expr,{x,x0}] gives the leading order of expansion in x.\nLeadingOrder[expr,poly,x] returns the leading order of the polynomial poly whic can be factorised for expr.";
 
 
 LeadingOrder[expr_,x_Symbol]:=Min[lorder[expr,{x,0}]]
@@ -708,6 +711,18 @@ lorder[0,{x_Symbol,x0_}]=\[Infinity];
 lorder[expr_,{x_Symbol,x0_}]:=Plus@@Cases[FactorList[expr/.x->x+x0],{x^a_.,n_}:>a n];
 lorder[expr_,{x_Symbol,\[Infinity]}]:=Plus@@Cases[FactorList[expr/.x->1/x],{x^a_.,n_}:>a n];
 lorder[expr_SeriesData,{x_Symbol,x0_}]/;MatchQ[Take[List@@expr,2],{x,x0}]:=expr[[4]];
+
+
+LeadingOrder[expr_,poly_,x_Symbol]:=Module[{n,d},
+{n,d}=Through[{Numerator,Denominator}[Together@expr]];
+lorder[n,poly,x]-lorder[d,poly,x]
+]
+
+
+lorder[poly1_,poly_,x_Symbol]:=Module[{div=poly1,rem,i=0},
+While[({div,rem}=PolynomialQuotientRemainder[div,poly,x];rem===0),
+i++];
+i]
 
 
 SeriesSolutionData::usage="SeriesSolutionData[M,{x,x0,n}] constructs data for generalized power series solution of the system \[PartialD]U=M\[InvisibleComma]U.\nGeneralized form: SeriesSolutionData[M,{x,y(x),n}].\n    \[FilledSmallCircle] M should be rational.\n    \[FilledSmallCircle] M should be Fuchsian at x=x0.\n    \[FilledSmallCircle] Residue A at x=x0 should be free of resonances.\n    \[FilledSmallCircle] SeriesSolutionData returns data U with the asymptotics (x-x0)^A.\nReturned data has the form of a list with each element having the form {\[Lambda],\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\),s,{\!\(\*SubscriptBox[\(T\), \(1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]T\), \(s\)]\)}&,C[\[Lambda],0..\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\)]}.";
@@ -807,15 +822,33 @@ i]
 ]
 
 
-FactorLeadingLetter[expr_,l_]:=Module[{r},
-r={II[{ls:(l)..,b1:Except[l],bs___},x_]:>II[{ls},x]II[{b1,bs},x]-Plus@@(II[#,x]&/@Rest[ShuffleProduct[{ls},{b1,bs}]]),II[ls:{(l)..},x_]:>II[{l},x]^Length[ls]/Length[ls]!};
-expr//.r
+InsertionPositions[m_Integer,n_Integer]:=Module[{ss,range},
+range=Range[n]-1;
+#-range&/@Subsets[Range[m+n],{n}]
+]
+ShuffleProductNestList[l_,list_List,n_Integer]:=Module[{len=Length@list,k},
+Table[Insert[list,l,List/@#]&/@InsertionPositions[len,k],{k,0,n}]
 ]
 
 
-FactorTrailingLetter[expr_,l_]:=Module[{r},
-r={II[{bs___,b1:Except[l],ls:(l)..},x_]:>II[{bs,b1},x]II[{ls},x]-Plus@@(II[#,x]&/@Rest[ShuffleProduct[{b1,bs},{ls}]]),II[ls:{(l)..},x_]:>II[{l},x]^Length[ls]/Length[ls]!};
-expr//.r
+todo["InsertionPositions can probably be written in C"];
+
+
+FactorLeadingLetter[expr_,l_,h_:II]:=Module[{IIs,IIrules={},shuffleRule,ex=expr,k,il,i},
+shuffleRule=h[{ls:(l)..,b1:Except[l],bs___},x_]:>Plus@@MapIndexed[Function[{shs,il},i=First[il]-1;((-1)^i)*h[Drop[{ls},-i],x]*Plus@@(h[Prepend[#,b1],x]&/@shs)],ShuffleProductNestList[l,{bs},Length@{ls}]];
+IIs=DeleteDuplicates[Cases[ex,h[{(l)..,Except[l],___},x_],All]];
+IIrules=Thread[IIs->Replace[IIs,shuffleRule,{1}]];
+ex=ex/.Dispatch[IIrules]/.h[ls:{(l)..},x_]:>h[{l},x]^Length[ls]/Length[ls]!;
+Return[ex]
+]
+
+
+FactorTrailingLetter[expr_,l_,h_:II]:=Module[{IIs,IIrules={},shuffleRule,ex=expr,k,il,i},
+shuffleRule=h[{bs___,b1:Except[l],ls:(l)..},x_]:>Plus@@MapIndexed[Function[{shs,il},i=First[il]-1;((-1)^i)*h[Drop[{ls},-i],x]*Plus@@(h[Append[#,b1],x]&/@shs)],ShuffleProductNestList[l,{bs},Length@{ls}]];
+IIs=DeleteDuplicates[Cases[ex,h[{___,Except[l],(l)..},x_],All]];
+IIrules=Thread[IIs->Replace[IIs,shuffleRule,{1}]];
+ex=ex/.Dispatch[IIrules]/.h[ls:{(l)..},x_]:>h[{l},x]^Length[ls]/Length[ls]!;
+Return[ex]
 ]
 
 
@@ -844,7 +877,8 @@ Transform[m_?SquareMatrixQ,t_,OptionsPattern[]]:=Factor[InvertBlockTriangular@t.
 Transform[m_?SquareMatrixQ,t_,x_Symbol,OptionsPattern[]]:=Factor[InvertBlockTriangular@t.Factor[(m.t-D[t,x])]];
 
 
-Transform[m_?SquareMatrixQ,t_,x_Symbol,ii:{__Integer}]:=Module[{mt=m,jj,ti=InvertBlockTriangular@t},
+Transform[m_?SquareMatrixQ,t_,x_Symbol,i:{__Integer}|Span[_,_]]:=Module[{mt=m,jj,ti=InvertBlockTriangular@t,ii},
+ii=Replace[i,{Span[a_Integer,b_Integer]:>Range[a,b],Span[a_Integer,All]:>Range[a,Length@m]}];
 mt[[ii,ii]]=Factor[ti.Factor[mt[[ii,ii]].t-D[t,x]]];
 jj=Complement[DependentColumnIndices[m,ii],ii];
 If[jj=!={},mt[[jj,ii]]=Factor[mt[[jj,ii]].t]];
@@ -860,7 +894,7 @@ m
 ]
 
 
-Transform[as_Association,t_?SquareMatrixQ,ii:{__Integer}]:=Module[{m=as},
+Transform[as_Association,t_?SquareMatrixQ,ii:{__Integer}|Span[_,_]]:=Module[{m=as},
 (m[#]=Transform[m[#],t,#,ii])&/@Keys[m];
 m
 ]
@@ -873,7 +907,8 @@ m
 ]
 
 
-Transform[ds_?DSystemQ,t_?SquareMatrixQ,ii:{__Integer}]:=Module[{m=ds[[]],tf=IdentityMatrix[Length@ds]},
+Transform[ds_?DSystemQ,t_?SquareMatrixQ,i:{__Integer}|Span[_,_]]:=Module[{m=ds[[]],tf=IdentityMatrix[Length@ds],ii},
+ii=Replace[i,{Span[a_Integer,b_Integer]:>Range[a,b],Span[a_Integer,All]:>Range[a,Length@m]}];
 Check[tf[[ii,ii]]=t;,Message[Transform::wrng];Abort[]];
 (m[#]=Transform[m[#],t,#,ii])&/@Keys[m];
 HistoryAppend[ds,{m,{Transform,ds,tf}}];
@@ -895,14 +930,19 @@ ds[[]]
 ]
 
 
-A0ToSubspaces::usage="A0ToSubspaces[A0,\[Epsilon]\[Rule]0,Left|Right] gives the subspaces which may be used for the construction of the projectors for the balances with positive gains.";
+A0ToSubspaces::usage="A0ToSubspaces[A0,\[Epsilon]\[Rule]0,Left|Right] gives the subspaces which may be used for the construction of the projectors for the balances with positive gains.\nWhen called with option All\[Rule]True, it returns all subspaces.";
 
 
-A0ToSubspaces[A0_?SquareMatrixQ,rules_,side:(Left|Right):Left]:=Module[{l=Length@A0,jdata},
+Options[A0ToSubspaces]={All->False};
+
+
+A0ToSubspaces[A0_?SquareMatrixQ,rules_,side:(Left|Right):Left,OptionsPattern[]]:=Module[{l=Length@A0,jdata,sel=Select},
 jdata={Factor[#1]/.rules,##2}&@@@JDecompositionData@A0;
+(*Pick suitable evs*)
+If[TrueQ[OptionValue[All]],sel=#&];
 If[side===Right,
-SortBy[Select[jdata,TrueQ[Positive[First@#]]&],First][[All,3]],
-(*Transpose/@*)SortBy[Select[jdata,TrueQ[Negative[First@#]]&],First][[All,2]]
+SortBy[sel[jdata,TrueQ[Positive[First@#]]&],-First[#]&][[All,3]],
+SortBy[sel[jdata,TrueQ[Negative[First@#]]&],First][[All,2]]
 ]
 ]
 
@@ -915,12 +955,55 @@ A=ArrayFlatten[{{A0,A1-\[Lambda]*IdentityMatrix[l]},{0,A0}}];
 If[side===Left,A=Take[#,-l]&/@NullSpace[A],A=Take[#,l]&/@NullSpace[Transpose@A]];
 (*Get rid of denominators*)
 ns=Collect[PolynomialLCM@@Denominator[#]*#,\[Lambda],Factor]&/@Factor@DeleteCases[A,{0..}];
-ns=SortBy[DeleteCases[RowReduce[FixedPointList[D[#,\[Lambda]]&,#]/.\[Lambda]->0],{0..}]&/@ns,Length];
+ns=SortBy[DeleteDuplicates[DeleteCases[RowReduce[FixedPointList[D[#,\[Lambda]]&,#]/.\[Lambda]->0],{0..}]&/@ns],Length];
 (*If[side===Left,Transpose/@ns,ns]*)ns
 ]
 
 
 todo["improve A0A1ToSubspaces \[LongDash] calculate Groebner basis of \!\(\*SubscriptBox[\(u\), \(1\)]\)(\[Lambda]),\[Ellipsis],\!\(\*SubscriptBox[\(u\), \(k\)]\)(\[Lambda])."];
+
+
+GetSubspaces::usage="GetSubspaces[\!\(\*
+StyleBox[\"m\", \"TI\"]\),{x,\!\(\*SubscriptBox[\(x\), \(0\)]\)},\[Epsilon],Left|Right] gives the subspaces which may be used for the construction of the projectors for the balances with positive gains.\nWhen called with option All\[Rule]True, it returns all subspaces."
+
+
+Options[GetSubspaces]={All->False}
+
+
+GetSubspaces[m_?DSystemQ,{x_,x0_},args___]:=GetSubspaces[m[x],{x,x0},args]
+GetSubspaces[m_Association,{x_,x0_},args___]:=GetSubspaces[m[x],{x,x0},args]
+
+
+GetSubspaces[m_?SquareMatrixQ,{x_,x0_},\[Epsilon]_,side:(Left|Right):Left,OptionsPattern[]]:=Module[
+{r,s,o,ser,m0,m1,status=""},
+Monitor[
+status="Evaluating Poincare rank...";
+r=PoincareRank[m,{x,x0}];
+PrintTemporary["Poincare rank: "<>ToString[r]];
+status="Evaluating expansion";
+s=2Boole[x0===\[Infinity]]-1;
+o=s-r;(*leading order of expansion*)
+If[r>0,
+If[TrueQ@OptionValue[All],
+(*Just return all subspaces*)
+m0=-s*SeriesCoefficient[m,{x,x0,o}];
+status="Evaluating subspaces";
+Return[A0ToSubspaces[m0,\[Epsilon]->0,side,All->True]],
+(*return Barkatou subspaces*)
+ser=-s*Series[m,{x,x0,o+1}];
+m0=SeriesCoefficient[ser,{x,x0,o}];
+m1=SeriesCoefficient[ser,{x,x0,o+1}];
+status="Evaluating subspaces";
+Return[A0A1ToSubspaces[{m0,m1},side]]
+],
+(*Fuchsian singularity*)
+m0=-s*SeriesCoefficient[m,{x,x0,o}];
+status="Evaluating subspaces";
+Return[A0ToSubspaces[m0,\[Epsilon]->0,side,All->OptionValue[All]]]
+]
+,status
+]
+]
 
 
 Projector::usage="Projector[image,coimage] constructs projector with prescribed image and coimage.";
@@ -1175,7 +1258,7 @@ ms=Replace[OptionValue[DependentRowIndices],Automatic->tclosure[Transpose[m,{3,1
 (*insert here check for normalization*)
 t=ConstantArray[0,{n,n}];
 vars=(t[[##]]=Unique["t"])&@@@Flatten[Outer[List,{#},DependentRowIndices[ms,{#}]]&/@Range[n],2];
-eqs=Flatten[(#.t-t.(#/.\[Epsilon]->\[Mu]))&/@m];If[!OptionValue[Solve],Print["Returning a pair {eqs,t}. To find the transformation one should solve eqs\[Equal]0 with respect to Variables[t] and substitute the solution to t."];Return[{eqs,t}]];
+eqs=SortBy[Flatten[(#.t-t.(#/.\[Epsilon]->\[Mu]))&/@m],ByteCount];If[!OptionValue[Solve],Print["Returning a pair {eqs,t}. To find the transformation one should solve eqs\[Equal]0 with respect to Variables[t] and substitute the solution to t."];Return[{eqs,t}]];
 Quiet[sol=GaussSolve[eqs,vars]];
 t/.sol/.MapIndexed[#->C@@#2&,Complement[vars,First/@sol]]
 ]
@@ -1186,7 +1269,10 @@ StyleBox[\"m\", \"TI\"]\),\!\(\*
 StyleBox[\"x\", \"TI\"]\)] gets rid of multiple poles in off-diagonal elements.";
 
 
-Options[BlockTriangularToFuchsian]={Simplify->False};
+Options[BlockTriangularToFuchsian]={
+Simplify->False(*whether to simplify simple poles*)
+(*,Check\[Rule]True(*whether to check if diagonal blocks are fuchsian*)*)
+};
 
 
 BlockTriangularToFuchsian[ds_?DSystemQ,x_,p:(_List|All):All,opts:OptionsPattern[]]:=
@@ -1210,12 +1296,13 @@ blocks=EntangledBlocksIndices[matr]
 poles=Reverse@SortBy[DeleteCases[Replace[p,{All:>PolesInfo[matr,x],_:>({#,PoincareRank[matr,{x,#}]}&/@p)}],{_,_?Negative}],Last];
 transform=IdentityMatrix[n];
 If[poles=={},Return[transform]];
-If[!And@@(FuchsianQ[m[[#,#]],x]&/@blocks),Message[BlockTriangularToFuchsian::blocks];Return[IdentityMatrix[n]]];
+(*(*Deleted 09.02.2018*)If[OptionValue[Check],If[!And@@(FuchsianQ[m[[#,#]],x]&/@blocks),Message[BlockTriangularToFuchsian::blocks]];Return[IdentityMatrix[n]]];(*/Deleted 09.02.2018*)*)
 Function[{x0},
 (*Cycle over blocks.*)
 Monitor[
 Do[
 (*First, generate matrix*)
+i2="?";
 c=ConstantArray[0,{n,n}];
 ind1=Flatten[blocks[[i1]]];ind2=Flatten[blocks[[1;;(i1-1)]]];
 vars=Table[Unique["c"],{Length@ind1},{Length@ind2}];
@@ -1224,12 +1311,13 @@ vars=Flatten@vars;
 (*matrix generated*)
 order=PoincareRank[m[[ind1,ind2]],{x,x0}];
 (*Now cycle over pole order*)
+Unset[i2];
 Do[
 If[x0=!=\[Infinity],
 t=IdentityMatrix[n]+c/(x-x0)^i2;o=-1,
 t=IdentityMatrix[n]+c*(x)^i2;o=1];
 mt=Transform[m,t,x];
-Quiet[Check[sol=GaussSolve[Flatten[SeriesCoefficient[mt[[ind1,ind2]],{x,x0,o-i2}]],vars],If[i2>0,Print["Problem"]];Continue[],{GaussSolve::inconsistent}],{GaussSolve::inconsistent}];
+Quiet[Check[sol=GaussSolve[If[i2>0,SortBy,#1&][Flatten[SeriesCoefficient[mt[[ind1,ind2]],{x,x0,o-i2}]],ByteCount],vars],If[i2>0,Print["Problem"]];Continue[],{GaussSolve::inconsistent}],{GaussSolve::inconsistent}];
 m=Factor[mt/.sol/.Thread[Flatten@c->0]];
 transform=Factor[transform.(t/.sol/.Thread[Flatten@c->0])];
 ,{i2,order,oc,-1}]
@@ -1237,6 +1325,17 @@ transform=Factor[transform.(t/.sol/.Thread[Flatten@c->0])];
 Row[{x0,":",i1,"\[LeftArrow]",i2}]]
 ]/@First/@poles;
 Return[transform];
+]
+
+
+BTSolve::usage="BTSolve[{A,B,C}] returns matrix D which is the solution of the equation D+AD-DC+B=0.";
+
+
+BTSolve[{A_?SquareMatrixQ,B_?MatrixQ,C_?SquareMatrixQ}]:=Module[{n=Length@A,m=Length@C,T},
+If[Dimensions[B]=!={n,m},Abort[]];
+T=IdentityMatrix[n*m]+ArrayFlatten[Outer[Times,A,IdentityMatrix[m]]-Outer[Times,IdentityMatrix[n],Transpose@C]];
+(*Return[Partition[LinearSolve[T,-Flatten@B],m]]*)
+Return[Check[Partition[LinearSolve[T,-Flatten@B],m],Indeterminate*B,{LinearSolve::nosol}]]
 ]
 
 
