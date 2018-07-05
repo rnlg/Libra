@@ -31,7 +31,19 @@ Take[a,#]&/@Transpose[{bs,es}]
 System`ShuffleProduct::usage="ShuffleProduct[l1,l2] implements the shuffle product, e.g., ShuffleProduct[{a,b},{c,d}] \[LongRightArrow] {{a,b,c,d},{a,c,b,d},{a,c,d,b},{c,a,b,d},{c,a,d,b},{c,d,a,b}}.";
 
 
-System`ShuffleProduct[a_List,b_List]:=Module[{chrs=Join[a,b],nums},nums=Range[Length[chrs]];Join@(Permute[chrs,#])&/@(Join[#,Complement[nums,#]]&/@Subsets[nums,{Length[Characters[a]]}])]
+System`ShuffleProduct[a_List,b_List]:=Module[{chrs=Join[a,b],nums},nums=Range[Length[chrs]];Join@(Permute[chrs,#])&/@(Join[#,Complement[nums,#]]&/@Subsets[nums,{Length[a]}])]
+
+
+System`StuffleProduct::usage="StuffleProduct[l1,l2] implements the stuffle product, e.g., StuffleProduct[{a,b},{c,d}] \[LongRightArrow]{{a,b,c,d},{a,b+c,d},{a,c,b,d},{a,c,b+d},{a+c,b,d},{a+c,b+d},{a,c,d,b},{a+c,d,b},{c,a,b,d},{c,a,b+d},{c,a,d,b},{c,a+d,b},{c,d,a,b}}.\nTo replace '+' in the above expression with function f, use the option Function\[Rule]f. E.g. StuffleProduct[{a,b},{c,d},Function\[Rule]f] \[LongRightArrow]{{a,b,c,d},{a,f[b,c],d},{a,c,b,d},{a,c,f[b,d]},{f[a,c],b,d},{f[a,c],f[b,d]},{a,c,d,b},{f[a,c],d,b},{c,a,b,d},{c,a,f[b,d]},{c,a,d,b},{c,f[a,d],b},{c,d,a,b}}.";
+
+
+Options[System`StuffleProduct]={Function->Plus}
+
+
+System`StuffleProduct[alist_List,blist_List,OptionsPattern[]]:=Module[{res,ar=Range[Length@alist],br=-Reverse@Range[Length@blist],p,s,l},
+res=ShuffleProduct[ar,br];
+res=Flatten[Outer[l,Sequence@@(List/@#//.{pre___,{a:Alternatives@@ar},{b:Alternatives@@br},post___}:>{pre,{s[a,b],p[a,b]},post})]&/@res]/.{s->Sequence,l->List}/.Thread[Join[ar,br]->Join[alist,blist]]/.p->OptionValue[Function]
+]
 
 
 BeginPackage["Libra`"]
@@ -122,6 +134,9 @@ DenominatorOrder;
 
 
 BlockTriangularToFuchsian;
+
+
+ToOneDE;ToCompanionDS;
 
 
 BTSolve;
@@ -355,11 +370,10 @@ Message[NewDSystem::error];Abort[];
 Unprotect[ds];
 redefineOperations[ds];
 Protect[ds];
-If[TrueQ@OptionValue[Print],Print["Successfully created differential system for "<>ToString@Length@ds<>" functions of "<>StringRiffle[ToString/@First/@defs,","]<>"."]];
+If[TrueQ@OptionValue[Print],Print["Successfully created differential system for "<>ToString@Length@ds<>" functions of "<>StringRiffle[ToString/@First/@defs,","]<>"."];
+(*Print["Next, you might want to find denominators appearing. See ?Denominators."];*)];
 ds::usage="Differential system for "<>ToString@Length@ds<>" functions of "<>StringJoin@@Riffle[ToString/@First/@defs,","]<>".";
-Print["Next, you might want to find denominators appearing. See \!\(\*
-StyleBox[\"?\",\nFontWeight->\"Bold\"]\)\!\(\*
-StyleBox[\"Denominators\",\nFontWeight->\"Bold\"]\)."];
+
 ]
 
 
@@ -795,7 +809,7 @@ SeriesSolutionData::res="Resonant eigenvalues at `1`=`2`.";
 
 
 ssd[M_?SquareMatrixQ,y_,yv_]:=Module[
-{pr,A,T,JF,x2A,p,fp,Q,poles,qs,Bs,\[Lambda],tmp,
+{pr,A,T,JF,x2A,p,fp,Q,poles,dens,qs,Bs,\[Lambda],tmp,
 Rcoefs,rcoefs,n,Rdata,
 statusline=""},
 Monitor[
@@ -809,8 +823,13 @@ Print["Leading expansion terms:\n",Sequence@@(Riffle[TraditionalForm[yv^#1 Log[y
 If[MemberQ[Factor[Subtract@@@Subsets[First/@fp,{2}]],_Integer],Message[SeriesSolutionData::res,yv,0];Return[$Failed]];
 (*Now we find common denominator Q, Eq(6) of DESS paper*)
 statusline="Getting rid  of denominators";
-poles=DeleteCases[PolesPosition[M,y],\[Infinity]|0];
-Q=Times@@((y-#)^(1+PoincareRank[M,{y,#}])&/@poles);
+(*poles=DeleteCases[PolesPosition[M,y],\[Infinity]|0];
+Q=Times@@((y-#)^(1+PoincareRank[M,{y,#}])&/@poles);*)
+Q=1;
+While[{}=!=(dens=Denominators[Together[M Q],_?(FreeQ[#,y]&)]),
+Q*=PolynomialLCM[Sequence@@dens,y];
+];
+Q=Numerator@Together[Q/y];
 qs=CoefficientList[Q,y];
 Bs=Coefficient[Factor[Q(y M-\[Lambda] IdentityMatrix[Length@M])],y,#]&/@Range[0,Length[qs]-1];
 statusline="Evaluating matrix exponent.";
@@ -822,7 +841,7 @@ statusline="Evaluating recurrence coefficients for power: "<>ToString[\[Alpha]];
 rcoefs=Rcoefs[\[Alpha],k](*[n]*);
 tmp=OInverse[-rcoefs[[1]]];(*may be improved by dedicated calculation of inverse of bjf with 
 off-diagonal terms calculated by iterative multiplication by -A^(-1)B*)
-{\[Alpha],k,Length@rcoefs-1(*=s from the paper*),Function@@({ODot[tmp,#]&/@Rest[rcoefs]/.n:>Slot[1]}),Flatten[Coefficient[x2A,p[\[Alpha],#]]&/@Range[0,k],1]}
+{\[Alpha],k,Length@rcoefs-1(*=s from the paper*),Function@@({ODot[tmp,#]&/@Rest[rcoefs]/.n:>Slot[1]}),Flatten[#!*Coefficient[x2A,p[\[Alpha],#]]&/@Range[0,k],1]}
 ]@@@fp;
 Print["Series data is constructed."];
 Rdata
@@ -913,6 +932,29 @@ IIrules=Thread[IIs->Replace[IIs,shuffleRule,{1}]];
 ex=ex/.Dispatch[IIrules]/.h[ls:{(l)..},x_]:>h[{l},x]^Length[ls]/Length[ls]!;
 Return[ex]
 ]
+
+
+ToOneDE::usage="ToOneDE[M,x,i] constructs one higher-order differential equation for the i-th master.\nIt returns the list of the coefficients {Subscript[c, 0],Subscript[c, 1],\[Ellipsis],Subscript[c, n]} in front of the consecutive orders of derivatives, so that the equation has the form Subscript[c, 0]f(x)+Subscript[c, 1]f'(x)+\[Ellipsis]+Subscript[c, n]f^(n)(x)=0.";
+
+
+ToOneDE[M_,x_,i_:1]:=Module[
+{ders,Mk=IdentityMatrix[Length@M]},
+ders={Mk[[i]]};
+While[MatrixRank[ders]==Length@ders,
+PrintTemporary[Length@ders];
+(*Add one more row*)
+Mk=Factor[D[Mk,x]+Mk.M];
+AppendTo[ders,Mk[[i]]];
+];
+First[NullSpace[Transpose[ders]]]
+]
+
+
+ToCompanionDS::usage="ToCompanionDS[{Subscript[c, 0],Subscript[c, 1],\[Ellipsis],Subscript[c, n]}] constructs the companion matrix Subscript[M, c] out of the coefficients of differential equation Subscript[c, 0]f(x)+Subscript[c, 1]f'(x)+\[Ellipsis]+Subscript[c, n]f^(n)(x)=0. This matrix enters the right-hand side of the differential system \!\(
+\*SubscriptBox[\(\[PartialD]\), \(x\)]F\)=Subscript[M, c]F, where F=(f,f',\[Ellipsis],f^(n))^T.";
+
+
+ToCompanionDS[coefs_List]:=Append[Rest@IdentityMatrix[Length@coefs-1],Factor[Most[coefs]/-Last[coefs]]]
 
 
 todo["Transform: add support for notations."]
@@ -1021,7 +1063,7 @@ nots[y]=p;
 Unprotect[ds];
 Notations[ds]^=nots;
 Protect[ds];
-HistoryAppend[ds,{ds[],{AddNotation,ds,rs,ys}}];
+HistoryAppend[ds,{ds[],{AddNotation,ds,y->p}}];
 Protect[y];
 ds[[]]
 ]
@@ -1051,7 +1093,7 @@ A0A1ToSubspaces[{A0_?SquareMatrixQ,A1_?SquareMatrixQ},side:(Left|Right):Left]/;L
 A=ArrayFlatten[{{A0,A1-\[Lambda]*IdentityMatrix[l]},{0,A0}}];
 If[side===Left,A=Take[#,-l]&/@ker[A],A=Take[#,l]&/@ker[Transpose@A]];
 (*Get rid of denominators*)
-ns=Collect[PolynomialLCM@@Denominator[#]*#,\[Lambda],Factor]&/@Factor@DeleteCases[A,{0..}];
+ns=Collect[Cancel[PolynomialLCM@@Denominator[#]*#],\[Lambda],Factor]&/@Factor@DeleteCases[A,{0..}];
 ns=SortBy[DeleteDuplicates[DeleteCases[RowReduce[FixedPointList[D[#,\[Lambda]]&,#]/.\[Lambda]->0],{0..}]&/@ns],Length];
 (*If[side===Left,Transpose/@ns,ns]*)ns
 ]
