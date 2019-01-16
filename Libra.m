@@ -19,7 +19,28 @@
 
 
 
-System`PartitionByLengths::usage="PartitionByLengths[list,lengths] splits lest into chunks of the given leghts.\nExample:PartitionByLengths[{a,b,c,d,e,f},{3,1,2}] \[LongRightArrow] {{a,b,c},{d},{e,f}}";
+System`GenCoefficientRules::usage="GenCoefficientRules[expr,vars] does the same as CoefficientRules[expr,vars], but applies also to noninteger powers.";
+
+
+System`GenCoefficient::usage="GenCoefficient[expr,vars, pows] returns coefficient in front of the Times@@(vars^pows).";
+
+
+System`GenCoefficientRules[expr_,var_]:=System`GenCoefficientRules[expr,{var}];
+System`GenCoefficientRules[expr_List,vars_]:=System`GenCoefficientRules[#,vars]&/@expr;
+System`GenCoefficientRules[expr_,vars_List]:=Module[
+{ps=Table[Unique[],{Length@vars}],expanded,tov,v},
+expanded=Expand[expr*Times@@(vars^ps)];
+tov=DeleteDuplicates[Cases[expanded,(__)(Times@@(vars^(Pattern[#,Blank[]]&/@ps))):>Evaluate[Times@@(vars^ps)->v@@ps],All]];
+Thread[Last/@tov ->Last/@CoefficientRules[expanded/.tov,Last/@tov]]/.v->List/.Thread[ps->0]
+];
+System`GenCoefficient[expr_,var_,pow_]:=System`GenCoefficient[expr,{var},{pow}];
+System`GenCoefficient[expr_,vars_List,pows_List]:=Module[{ps=Table[Unique[],{Length@vars}],expanded,v},
+expanded=ExpandAll[expr*Times@@(vars^ps)];
+Coefficient[expanded/.Times@@(vars^Expand[ps+pows]):>v,v]
+]
+
+
+System`PartitionByLengths::usage="PartitionByLengths[list,lengths] splits list into chunks of the given leghts.\nExample:PartitionByLengths[{a,b,c,d,e,f},{3,1,2}] \[LongRightArrow] {{a,b,c},{d},{e,f}}";
 
 
 System`PartitionByLengths[a_List,b_List]:=Module[{es=Accumulate[b],bs},
@@ -158,6 +179,9 @@ TraditionalForm]\) is arbitrary (with convention II[{},x]=1). II[{\!\(\*Subscrip
 SeriesSolutionData;ConstructSeriesSolution;
 
 
+SpotCoefficients;
+
+
 FactorLeadingLetter;FactorTrailingLetter;
 
 
@@ -279,8 +303,7 @@ Ti=ODot[t,Ti]]),
 }
 ],
 {i,start+1,end}],
-ProgressIndicator[i,{start,end}]
-];
+Overlay[{ProgressIndicator[i,{start,end}],ToString[i-start]<>"/"<>ToString[end-start]},Alignment->Center]];
 If[TrueQ@OptionValue[HistoryAppend],
 If[TrueQ@OptionValue[HistoryChop]||Length@History[ds]<=HistoryIndex[ds],
 HistoryAppend[ds,{val,{Undo,ds,end-start}}];
@@ -819,7 +842,7 @@ A=SeriesCoefficient[M,{y,0,-1}];
 statusline="Reducing to Jordan form";
 {T,JF}=JDecomposition[A];
 fp=p[#[[1,1]],Max[Length/@#]-1]&/@GatherBy[DeleteDuplicates[Map[First,Split[Transpose[{Diagonal[JF],Append[Diagonal[JF,1],0]}],#1[[2]]=!=0&],{2}]],First];
-Print["Leading expansion terms:\n",Sequence@@(Riffle[TraditionalForm[yv^#1 Log[yv]^#2]&@@@fp,","])];
+PrintTemporary["Leading expansion terms:\n",Sequence@@(Riffle[TraditionalForm[yv^#1 Log[yv]^#2]&@@@fp,","])];
 If[MemberQ[Factor[Subtract@@@Subsets[First/@fp,{2}]],_Integer],Message[SeriesSolutionData::res,yv,0];Return[$Failed]];
 (*Now we find common denominator Q, Eq(6) of DESS paper*)
 statusline="Getting rid  of denominators";
@@ -843,7 +866,6 @@ tmp=OInverse[-rcoefs[[1]]];(*may be improved by dedicated calculation of inverse
 off-diagonal terms calculated by iterative multiplication by -A^(-1)B*)
 {\[Alpha],k,Length@rcoefs-1(*=s from the paper*),Function@@({ODot[tmp,#]&/@Rest[rcoefs]/.n:>Slot[1]}),Flatten[#!*Coefficient[x2A,p[\[Alpha],#]]&/@Range[0,k],1]}
 ]@@@fp;
-Print["Series data is constructed."];
 Rdata
 ,statusline]]
 
@@ -857,14 +879,14 @@ SeriesSolutionData[M_?SquareMatrixQ,{x_,y_}]:=
 Module[{z,xvar},xvar=x/.First[Solve[z==y,x]];ssd[M D[xvar,z]/.{x->xvar},z,y]];
 
 
-ConstructSeriesSolution::usage="ConstructSeriesSolution[rdata_,{x_,o_}] makes a series solution out of rdata (see ?SeriesSolutionData for how to get rdata).\n    o \[LongDash] order in x.\nIf f=ConstructSeriesSolution[SeriesSolutionData[M,{x,0}],{x,o}], then one may check the equation by Factor[D[y,x]-M.y].\nOptions:\n    O\[Rule]True|False:False \[LongDash] whether to add O[x]^o\n    Split\[Rule]True|False:False determines whether to split contribution of different fractional powers.\nSince Mathematica treats generalized power series poorly, using options O\[Rule]True and Split\[Rule]False simultaneously is not recommended. If option Split\[Rule]True is used,  ConstructSeriesSolution returns the result as a rectangular matrix n\[Times](n*|S|), with each square n\[Times]n block corresponding to a specific fractional power.";
+ConstructSeriesSolution::usage="ConstructSeriesSolution[rdata_,{x_,o_}] makes a series solution out of rdata (see ?SeriesSolutionData for how to get rdata).\n    o \[LongDash] order in x.\nIf f=ConstructSeriesSolution[SeriesSolutionData[M,{x,0}],{x,o}], then one may check the equation by Factor[D[y,x]-M.y].\nOptions:\n    O\[Rule]True|False:False \[LongDash] whether to add O[x]^o\n    Split\[Rule]True|False:False determines whether to split contribution of different fractional powers.\n    Hold->f|False:False -- whether to wrap the leading powers. If f\[NotEqual]False is given, f[lp] is used instead of \!\(\*SuperscriptBox[\(x\), \(lp\)]\).\nSince Mathematica treats generalized power series poorly, using options O\[Rule]True and Split\[Rule]False simultaneously is not recommended. If option Split\[Rule]True is used,  ConstructSeriesSolution returns the result as a rectangular matrix n\[Times](n*|S|), with each square n\[Times]n block corresponding to a specific fractional power.";
 ConstructSeriesSolution::mixed="Since Mathematica treats generalized power series poorly, using options O\[Rule]True and Split\[Rule]False simultaneously is not recommended.";
 
 
-Options[ConstructSeriesSolution]={O->False,Split->False};
+Options[ConstructSeriesSolution]={O->False,Split->False,Simplify->Factor};
 
 
-ConstructSeriesSolution[rdata_,{x_,o_}, OptionsPattern[]]:=Module[{c,n,sdata,sf=Factor,Oo=TrueQ@OptionValue[O],So=TrueQ@OptionValue[Split]},
+ConstructSeriesSolution[rdata_,{x_,o_}, OptionsPattern[]]:=Module[{c,n,sdata,sf=OptionValue[Simplify],Oo=TrueQ@OptionValue[O],So=TrueQ@OptionValue[Split](*,Ho=If[TrueQ@!OptionValue[Hold],x^#&,OptionValue[Hold]]*)},
 If[Oo&&!So,Message[ConstructSeriesSolution::mixed]];
 Oo=If[Oo,x^o O[x],0];
 sdata=(Function[{lp,llp,M,coefs,init},
@@ -931,6 +953,18 @@ IIs=DeleteDuplicates[Cases[ex,h[{___,Except[l],(l)..},x_],All]];
 IIrules=Thread[IIs->Replace[IIs,shuffleRule,{1}]];
 ex=ex/.Dispatch[IIrules]/.h[ls:{(l)..},x_]:>h[{l},x]^Length[ls]/Length[ls]!;
 Return[ex]
+]
+
+
+SpotCoefficients::usage="SpotCoefficients[Mf,T,\[Epsilon],{x,y(x),o}] tries to find the coefficients in the asymptotic expansion of the initial integrals which are sufficient for fixing boundary conditions. The output is a list with each element being of the form {y(x),i,\[Alpha],k}. It stands for the coefficient \!\(\*SuperscriptBox[\(y\), \(\[Alpha]\)]\)\!\(\*SuperscriptBox[\(ln\), \(k\)]\)y in i-th integral.";
+SpotCoefficients[Mf_,T_,\[Epsilon]_,{x_,y_,o_}]/;FreeQ[y,x]:=SpotCoefficients[Mf,T,\[Epsilon],{x,y,o}]
+SpotCoefficients[Mf_,T_,\[Epsilon]_,{x_,y_,o_}]:=Module[{rdata,TUr,z,zrule,ii,p,powers,tmp,cs=ConstantArray[0,Length@Mf]},
+zrule=First[Solve[z==y,x]];
+Monitor[
+MapIndexed[(ii=#;rdata=SeriesSolutionData[Factor[Mf[[ii,ii]]],{x,y}];TUr=(Plus@@Partition[#1,Length[ii]]&)/@Map[Collect[Expand[#1 p[0,0]]/. {Log[z]->p[0,1],z->p[1,0]}//. {p[a_,b_]^c_:>p[a c,b c],p[a_,b_] p[c_,d_]:>p[a+c,b+d]},_p,Factor]&,Normal[(T[[ii,ii]]/. zrule).ConstructSeriesSolution[rdata,{z,o},Split->True,O->True]],{2}];powers={};tmp={};MapIndexed[Function[{row,i},Module[{ps=SortBy[Union[Cases[row,_p,All]],First[#/.\[Epsilon]->0]&]},Catch[((tmp=Append[tmp,Factor[Coefficient[row,#1]]];If[MatrixRank[tmp]>=First[i],AppendTo[powers,#1];Throw[0]];tmp=Most[tmp])&)/@ps;Abort[]]]],TUr];cs[[ii]]=MapIndexed[{y,ii[[First[#2]]],Sequence@@#1}&,powers];
+)&,EntangledBlocksIndices[Mf]],
+ii];
+cs
 ]
 
 
@@ -1435,7 +1469,7 @@ transform,c,
 poles,oc=Boole[Not[TrueQ@OptionValue[Simplify]]],
 blocks=EntangledBlocksIndices[matr]
 },
-poles=Reverse@SortBy[DeleteCases[Replace[p,{All:>PolesInfo[matr,x],_:>({#,PoincareRank[matr,{x,#}]}&/@p)}],{_,_?Negative}],Last];
+poles=Reverse@DeleteCases[Replace[p,{All:>PolesInfo[matr,x],_:>({#,PoincareRank[matr,{x,#}]}&/@p)}],{_,_?Negative}];
 transform=IdentityMatrix[n];
 If[poles=={},Return[transform]];
 (*(*Deleted 09.02.2018*)If[OptionValue[Check],If[!And@@(FuchsianQ[m[[#,#]],x]&/@blocks),Message[BlockTriangularToFuchsian::blocks]];Return[IdentityMatrix[n]]];(*/Deleted 09.02.2018*)*)
@@ -1458,7 +1492,7 @@ Do[
 If[x0=!=\[Infinity],
 t=IdentityMatrix[n]+c/(x-x0)^i2;o=-1,
 t=IdentityMatrix[n]+c*(x)^i2;o=1];
-mt=Transform[m,t,x];
+mt=Transform[m,t,x];(*TODO: here Fermat should not be used*)
 Quiet[Check[sol=GaussSolve[If[i2>0,SortBy,#1&][Flatten[SeriesCoefficient[mt[[ind1,ind2]],{x,x0,o-i2}]],ByteCount],vars],If[i2>0,Print["Problem"]];Continue[],{GaussSolve::inconsistent}],{GaussSolve::inconsistent}];
 m=Factor[mt/.sol/.Thread[Flatten@c->0]];
 transform=ODot[transform,(t/.sol/.Thread[Flatten@c->0])];

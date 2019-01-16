@@ -1,1 +1,0 @@
-/home/roma/Yandex.Disk/Work/Loop Integrals/Applications/Massive form factors/Incoming/ff3lm1051-Amatrixs.m
