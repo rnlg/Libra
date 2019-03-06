@@ -687,7 +687,8 @@ StyleBox[\"matrix\", \"TI\"]\),\!\(\*
 StyleBox[\"index\", \"TI\"]\)] gives a list of indices of all dependent columns";
 
 
-DependentColumnIndices[m_,args__]:=DependentRowIndices[Transpose[TClosure[m]],args]
+DependentColumnIndices[m_?SquareMatrixQ,args__]:=DependentRowIndices[Transpose[m],args]
+DependentColumnIndices[ds_,args__]:=DependentRowIndices[Transpose[TClosure[m]],args]
 
 
 $LibraUseFermat::error="$LibraUseFermat can be set either to False or to True. The latter case requires Fermatica\` to be in the $ContextPath.";
@@ -961,8 +962,10 @@ SpotCoefficients[Mf_,T_,\[Epsilon]_,{x_,y_,o_}]/;FreeQ[y,x]:=SpotCoefficients[Mf
 SpotCoefficients[Mf_,T_,\[Epsilon]_,{x_,y_,o_}]:=Module[{rdata,TUr,z,zrule,ii,p,powers,tmp,cs=ConstantArray[0,Length@Mf]},
 zrule=First[Solve[z==y,x]];
 Monitor[
-MapIndexed[(ii=#;rdata=SeriesSolutionData[Factor[Mf[[ii,ii]]],{x,y}];TUr=(Plus@@Partition[#1,Length[ii]]&)/@Map[Collect[Expand[#1 p[0,0]]/. {Log[z]->p[0,1],z->p[1,0]}//. {p[a_,b_]^c_:>p[a c,b c],p[a_,b_] p[c_,d_]:>p[a+c,b+d]},_p,Factor]&,Normal[(T[[ii,ii]]/. zrule).ConstructSeriesSolution[rdata,{z,o},Split->True,O->True]],{2}];powers={};tmp={};MapIndexed[Function[{row,i},Module[{ps=SortBy[Union[Cases[row,_p,All]],First[#/.\[Epsilon]->0]&]},Catch[((tmp=Append[tmp,Factor[Coefficient[row,#1]]];If[MatrixRank[tmp]>=First[i],AppendTo[powers,#1];Throw[0]];tmp=Most[tmp])&)/@ps;Abort[]]]],TUr];cs[[ii]]=MapIndexed[{y,ii[[First[#2]]],Sequence@@#1}&,powers];
-)&,EntangledBlocksIndices[Mf]],
+MapIndexed[(ii=#;rdata=SeriesSolutionData[Factor[Mf[[ii,ii]]],{x,y}];TUr=(Plus@@Partition[#1,Length[ii]]&)/@Map[Collect[Expand[#1 p[0,0]]/. {Log[z]->p[0,1],z->p[1,0]}//. {p[a_,b_]^c_:>p[a c,b c],p[a_,b_] p[c_,d_]:>p[a+c,b+d]},_p,Factor]&,Normal[(T[[ii,ii]]/. zrule).ConstructSeriesSolution[rdata,{z,o},Split->True,O->True]],{2}];powers={};tmp={};MapIndexed[Function[{row,i},Module[{ps=SortBy[Union[Cases[row,_p,All]],First[#/.\[Epsilon]->0]&]},Catch[((tmp=Append[tmp,Factor[Coefficient[row,#1]]];If[MatrixRank[tmp]>=First[i],AppendTo[powers,#1];Throw[0]];tmp=Most[tmp])&)/@ps;
+Print["Could not find suitable coefficients for block ",ii," Aborting..."];
+Abort[]]]],TUr];cs[[ii]]=MapIndexed[{y,ii[[First[#2]]],Sequence@@#1}&,powers];
+)&,EntangledBlocksIndices[TClosure[Mf]+TClosure[T]]],
 ii];
 cs
 ]
@@ -1016,6 +1019,7 @@ Options[Transform]={Simplify->Factor};
 
 
 Transform::notinv="The two matrices are not reciprocal to each other. Aborting...";
+Transform::range="Something wrong with application range `1`. Aborting...";
 
 
 Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,OptionsPattern[]]:=Module[{ti=OInverse@t},
@@ -1047,8 +1051,9 @@ Message[Transform::notinv];Abort[]]
 
 
 transformrange[m_,t_,ti_,x_,Span[1,All],notas:{___Rule}:{}]:=transform[m,t,ti,x,notas];
-transformrange[m_,t_,ti_,x_,i_,notas:{___Rule}:{}]:=Module[{mt=m,jj,ii},
-ii=Replace[i,{Span[a_Integer,b_Integer]:>Range[a,b],Span[a_Integer,All]:>Range[a,Length@m]}];
+transformrange[m_,t_,ti_,x_,i_,notas:{___Rule}:{}]:=Module[{mt=m,jj,ii,l=Length@m},
+ii=Replace[i,{Span[a_Integer,b_Integer]:>Range[Mod[a+l+1,l+1],Mod[b+l+1,l+1]],Span[a_Integer,All]:>Range[Mod[a+l+1,l+1],Length@m]}];
+If[Not[MatchQ[ii,{(_Integer?(1<=#<= l&))..}]],Message[Transform::range,i];Abort[]];
 mt[[ii,ii]]=transform[m[[ii,ii]],t,ti,x,notas];
 jj=Complement[DependentColumnIndices[m,ii],ii];
 If[jj=!={},mt[[jj,ii]]=ODot[mt[[jj,ii]],t]];
@@ -1507,6 +1512,9 @@ Return[transform];
 todo["BlockTriangularToFuchsian, option Simplify\[Rule]True seems to be broken"];
 
 
+todo["BlockTriangularToFuchsian, treat Notations."];
+
+
 BTSolve::usage="BTSolve[{A,B,C}] returns matrix D which is the solution of the equation D+AD-DC+B=0.";
 
 
@@ -1593,6 +1601,10 @@ PoincareRank[ds_?DSystemQ,{x_Symbol,x0_}]:=PoincareRank[ds[x],{x,x0}]
 
 PolesInfo[ds_Association,x_Symbol]:=PolesInfo[ds[x],x]
 PolesInfo[ds_?DSystemQ,x_Symbol]:=PolesInfo[ds[x],x]
+
+
+PolesInfo[ds_Association]:=(#->PolesInfo[ds[#],#])&/@Keys[ds]
+PolesInfo[ds_?DSystemQ,x_Symbol]:=(#->PolesInfo[ds[#],#])&/@Keys[ds]
 
 
 PolesInfo::usage="PolesInfo[\!\(\*
