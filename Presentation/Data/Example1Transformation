@@ -1,0 +1,132 @@
+Print["The list {\!\(\*SubscriptBox[\(M\), \
+\(i\)]\),T,\!\(\*SubscriptBox[\(M\), \(f\)]\)}, where \
+\!\(\*SubscriptBox[\(M\), \(i\)]\) is the original matrix, T is a \
+transformation to \[Epsilon]-form, \!\(\*SubscriptBox[\(M\), \(f\)]\) is a \
+transformed matrix."]; 
+{{{-(((1 + y^2)*(1 - 2*\[Epsilon]))/((-1 + y)*y*(1 + y))), 0, 0, 0, 0, 0, 0, 
+   0}, {0, -(((2 - 2*\[Epsilon])*(2 - 24*y^2 - 2*y^4 + 
+       10*y^2*(4 - 2*\[Epsilon]) + y^4*(4 - 2*\[Epsilon]) - 2*\[Epsilon]))/
+     ((-1 + y)*y*(1 + y)*(1 + y^2)*(-8 + 3*(4 - 2*\[Epsilon])))), 
+   (2*(-1 + y)*(1 + y)*(1 - 2*\[Epsilon]))/
+    (y*(1 + y^2)*(-8 + 3*(4 - 2*\[Epsilon]))), (6*y*(2 - 2*\[Epsilon])^2)/
+    ((-1 + y)*(1 + y)*(1 + y^2)*(-8 + 3*(4 - 2*\[Epsilon]))), 0, 0, 0, 0}, 
+  {0, -((-5 + 2*(4 - 2*\[Epsilon]))*(-4*y^4 - 2*y^2*(4 - 2*\[Epsilon]) + 
+       y^4*(4 - 2*\[Epsilon]) - 2*\[Epsilon]))/(2*(-1 + y)*y*(1 + y)*
+     (1 + y^2)), (2*(1 + 4*y^2 + y^4)*(1 - 2*\[Epsilon]))/
+    ((-1 + y)*y*(1 + y)*(1 + y^2)), (-3*y*(2 - 2*\[Epsilon])^2)/
+    ((-1 + y)*(1 + y)*(1 + y^2)), 0, 0, 0, 0}, 
+  {0, -(-24 + 160*y^2 + 848*y^4 + 160*y^6 - 24*y^8 + 26*(4 - 2*\[Epsilon]) - 
+      84*y^2*(4 - 2*\[Epsilon]) - 812*y^4*(4 - 2*\[Epsilon]) - 
+      84*y^6*(4 - 2*\[Epsilon]) + 26*y^8*(4 - 2*\[Epsilon]) - 
+      9*(4 - 2*\[Epsilon])^2 - 12*y^2*(4 - 2*\[Epsilon])^2 + 
+      234*y^4*(4 - 2*\[Epsilon])^2 - 12*y^6*(4 - 2*\[Epsilon])^2 - 
+      9*y^8*(4 - 2*\[Epsilon])^2 + (4 - 2*\[Epsilon])^3 + 
+      8*y^2*(4 - 2*\[Epsilon])^3 - 18*y^4*(4 - 2*\[Epsilon])^3 + 
+      8*y^6*(4 - 2*\[Epsilon])^3 + y^8*(4 - 2*\[Epsilon])^3)/
+    (6*(-1 + y)*y^3*(1 + y)*(1 + y^2)*(-8 + 3*(4 - 2*\[Epsilon]))*
+     (2 - 2*\[Epsilon])), ((-1 + y)*(1 + y)*(1 - 2*\[Epsilon])*
+     (2 + 8*y^2 - 2*y^4 - 2*y^2*(4 - 2*\[Epsilon]) + y^4*(4 - 2*\[Epsilon]) - 
+      2*\[Epsilon]))/(3*y^3*(1 + y^2)*(-8 + 3*(4 - 2*\[Epsilon]))*
+     (2 - 2*\[Epsilon])), (-8 - 32*y^2 - 4*y^4 + 18*y^2*(4 - 2*\[Epsilon]) - 
+     y^4*(4 - 2*\[Epsilon]) + (4 - 2*\[Epsilon])^2 - 
+     2*y^2*(4 - 2*\[Epsilon])^2 + y^4*(4 - 2*\[Epsilon])^2 + 2*\[Epsilon])/
+    ((-1 + y)*y*(1 + y)*(1 + y^2)*(-8 + 3*(4 - 2*\[Epsilon]))), 0, 0, 0, 0}, 
+  {0, 0, 0, 0, -((1 + y^2)/((-1 + y)*y*(1 + y))), 0, 
+   (-8 + 3*(4 - 2*\[Epsilon]))/(2*(-1 + y)*(1 + y)), 0}, 
+  {0, -(8 + 64*y^2 + 8*y^4 - 6*(4 - 2*\[Epsilon]) - 
+      20*y^2*(4 - 2*\[Epsilon]) - 6*y^4*(4 - 2*\[Epsilon]) + 
+      (4 - 2*\[Epsilon])^2 - 2*y^2*(4 - 2*\[Epsilon])^2 + 
+      y^4*(4 - 2*\[Epsilon])^2)/(8*(-1 + y)*y*(1 + y)*(1 + y^2)*
+     (1 - 2*\[Epsilon])), (2 - 68*y^2 - 2*y^4 + 22*y^2*(4 - 2*\[Epsilon]) + 
+     y^4*(4 - 2*\[Epsilon]) - 2*\[Epsilon])/(4*(-1 + y)*y*(1 + y)*(1 + y^2)*
+     (1 - 2*\[Epsilon])), (-3*y*(2 - 2*\[Epsilon])^2)/
+    (2*(-1 + y)*(1 + y)*(1 + y^2)*(1 - 2*\[Epsilon])), 0, 
+   -(((-1 + y)*(1 + y))/(y*(1 + y^2))), 0, 
+   (y*(-8 + 3*(4 - 2*\[Epsilon]))*(2 - 2*\[Epsilon]))/
+    (2*(-1 + y)*(1 + y)*(1 + y^2)*(1 - 2*\[Epsilon]))}, 
+  {(2*(-1 + y)*(1 + y)*(1 - 2*\[Epsilon])*\[Epsilon])/
+    (y^2*(-7 + 2*(4 - 2*\[Epsilon]))), 0, 0, 0, 
+   (-16*\[Epsilon])/((-1 + y)*(1 + y)*(-8 + 3*(4 - 2*\[Epsilon]))), 0, 
+   (2*(1 + y^2)*\[Epsilon])/((-1 + y)*y*(1 + y)), 0}, 
+  {0, ((-1 + y)*(1 + y)*(8 - 192*y^2 + 8*y^4 - 6*(4 - 2*\[Epsilon]) + 
+      140*y^2*(4 - 2*\[Epsilon]) - 6*y^4*(4 - 2*\[Epsilon]) + 
+      (4 - 2*\[Epsilon])^2 - 26*y^2*(4 - 2*\[Epsilon])^2 + 
+      y^4*(4 - 2*\[Epsilon])^2))/(4*y^3*(1 + y^2)*
+     (-8 + 3*(4 - 2*\[Epsilon]))), 
+   -((-1 + y)*(1 + y)*(2 + 12*y^2 - 2*y^4 - 2*y^2*(4 - 2*\[Epsilon]) + 
+       y^4*(4 - 2*\[Epsilon]) - 2*\[Epsilon]))/(2*y^3*(1 + y^2)*
+     (-8 + 3*(4 - 2*\[Epsilon]))), (3*(-1 + y)*(1 + y)*(2 - 2*\[Epsilon])^2)/
+    (y*(1 + y^2)*(-8 + 3*(4 - 2*\[Epsilon]))), 0, 
+   (8*(-1 + y)*(1 + y)*(1 - 2*\[Epsilon]))/
+    (y*(1 + y^2)*(-8 + 3*(4 - 2*\[Epsilon]))), 0, 
+   (1 + 10*y^2 + y^4 - 4*y^2*(4 - 2*\[Epsilon]))/((-1 + y)*y*(1 + y)*
+     (1 + y^2))}}, {{y/((-1 + y)*(1 + y)), 0, 0, 0, 0, 0, 0, 0}, 
+  {0, (-24192*(-1 + y)*(1 + y)*\[Epsilon]^2)/
+    (1175*y*(-1122 + 43*\[Epsilon] + 27709*\[Epsilon]^2)), 
+   (6048*(1 + y^2)*\[Epsilon]*(-1 + 10*\[Epsilon]))/
+    (83*y*(-1122 + 43*\[Epsilon] + 27709*\[Epsilon]^2)), 
+   (216*(-4*y^2 - \[Epsilon] + 26*y^2*\[Epsilon] - y^4*\[Epsilon] + 
+      6*\[Epsilon]^2 - 44*y^2*\[Epsilon]^2 + 6*y^4*\[Epsilon]^2))/
+    (7*(-1 + y)*y*(1 + y)*(-1122 + 43*\[Epsilon] + 27709*\[Epsilon]^2)), 0, 
+   0, 0, 0}, {0, (12096*(-1 + y)*(1 + y)*\[Epsilon]^2*(-2 + 3*\[Epsilon]))/
+    (1175*y*(-1122 + 43*\[Epsilon] + 27709*\[Epsilon]^2)), 
+   (-6048*(1 + y^2)*\[Epsilon]*(-2 + 3*\[Epsilon])*(-1 + 6*\[Epsilon]))/
+    (83*y*(-1122 + 43*\[Epsilon] + 27709*\[Epsilon]^2)), 
+   (-216*(-1 + y)*(1 + y)*\[Epsilon]*(-2 + 3*\[Epsilon])*(-1 + 4*\[Epsilon]))/
+    (7*y*(-1122 + 43*\[Epsilon] + 27709*\[Epsilon]^2)), 0, 0, 0, 0}, 
+  {0, (-4032*(-1 + y)*(1 + y)*\[Epsilon]^2*(1 + 10*y^2 + y^4 - 2*\[Epsilon] - 
+      25*y^2*\[Epsilon] - 2*y^4*\[Epsilon] + \[Epsilon]^2 + 
+      16*y^2*\[Epsilon]^2 + y^4*\[Epsilon]^2))/(1175*y^3*(-1 + \[Epsilon])^2*
+     (-1122 + 43*\[Epsilon] + 27709*\[Epsilon]^2)), 
+   (1008*(1 + y^2)*\[Epsilon]*(-1 - 16*y^2 - y^4 + 12*\[Epsilon] + 
+      158*y^2*\[Epsilon] + 12*y^4*\[Epsilon] - 21*\[Epsilon]^2 - 
+      326*y^2*\[Epsilon]^2 - 21*y^4*\[Epsilon]^2 + 10*\[Epsilon]^3 + 
+      196*y^2*\[Epsilon]^3 + 10*y^4*\[Epsilon]^3))/
+    (83*y^3*(-1 + \[Epsilon])^2*(-1122 + 43*\[Epsilon] + 
+      27709*\[Epsilon]^2)), (36*(-24*y^4 - \[Epsilon] - 16*y^2*\[Epsilon] + 
+      210*y^4*\[Epsilon] - 16*y^6*\[Epsilon] - y^8*\[Epsilon] + 
+      8*\[Epsilon]^2 + 124*y^2*\[Epsilon]^2 - 648*y^4*\[Epsilon]^2 + 
+      124*y^6*\[Epsilon]^2 + 8*y^8*\[Epsilon]^2 - 13*\[Epsilon]^3 - 
+      256*y^2*\[Epsilon]^3 + 794*y^4*\[Epsilon]^3 - 256*y^6*\[Epsilon]^3 - 
+      13*y^8*\[Epsilon]^3 + 6*\[Epsilon]^4 + 160*y^2*\[Epsilon]^4 - 
+      332*y^4*\[Epsilon]^4 + 160*y^6*\[Epsilon]^4 + 6*y^8*\[Epsilon]^4))/
+    (7*(-1 + y)*y^3*(1 + y)*(-1 + \[Epsilon])^2*(-1122 + 43*\[Epsilon] + 
+      27709*\[Epsilon]^2)), 0, 0, 0, 0}, {(7*y)/(2*(-1 + y)*(1 + y)), 0, 0, 
+   0, (21*y*(-1 + 2*\[Epsilon])*(-2 + 3*\[Epsilon]))/
+    (2*(-1 + y)*(1 + y)*\[Epsilon]*(-1 + 4*\[Epsilon])), 0, 
+   (21*y*(-1 + 2*\[Epsilon])*(-2 + 3*\[Epsilon]))/
+    (4*(-1 + y)*(1 + y)*\[Epsilon]*(-1 + 4*\[Epsilon])), 0}, 
+  {0, 0, 0, 0, 0, 0, 0, (93205*y*(-1 + 2*\[Epsilon])^2*(-2 + 3*\[Epsilon]))/
+    (3*(-1 + y)*(1 + y)*\[Epsilon]*(-1122 + 43*\[Epsilon] + 
+      27709*\[Epsilon]^2))}, {(-7*(1 + y^2)*\[Epsilon])/
+    ((-1 + y)*(1 + y)*(-2 + 3*\[Epsilon])), 0, 0, 0, 
+   (-21*(1 + y^2)*(-1 + 2*\[Epsilon]))/((-1 + y)*(1 + y)*
+     (-1 + 4*\[Epsilon])), 0, (-21*y^2*(-1 + 2*\[Epsilon]))/
+    ((-1 + y)*(1 + y)*(-1 + 4*\[Epsilon])), 0}, 
+  {0, (-3024*(-1 + y)^3*(1 + y)^3*\[Epsilon]^2)/
+    (1175*y^3*(-1122 + 43*\[Epsilon] + 27709*\[Epsilon]^2)), 
+   (6048*(-1 + y)^2*(1 + y)^2*(1 + y^2)*\[Epsilon]^2)/
+    (83*y^3*(-1122 + 43*\[Epsilon] + 27709*\[Epsilon]^2)), 
+   (108*(4*y^2 + 4*y^4 - 24*y^2*\[Epsilon] - 24*y^4*\[Epsilon] + 
+      \[Epsilon]^2 + 49*y^2*\[Epsilon]^2 + 47*y^4*\[Epsilon]^2 - 
+      y^6*\[Epsilon]^2 - \[Epsilon]^3 - 37*y^2*\[Epsilon]^3 - 
+      27*y^4*\[Epsilon]^3 + y^6*\[Epsilon]^3))/(7*y^3*(-1 + \[Epsilon])*
+     (-1122 + 43*\[Epsilon] + 27709*\[Epsilon]^2)), 0, 
+   (93205*(1 + y^2)*(-1 + 2*\[Epsilon])^3)/(3*y*(-1 + \[Epsilon])*
+     (-1122 + 43*\[Epsilon] + 27709*\[Epsilon]^2)), 0, 
+   (-93205*(-1 + 2*\[Epsilon])^3*(-2*y^2 + \[Epsilon] + 2*y^2*\[Epsilon] + 
+      y^4*\[Epsilon]))/(3*(-1 + y)*y*(1 + y)*(-1 + \[Epsilon])*\[Epsilon]*
+     (-1122 + 43*\[Epsilon] + 27709*\[Epsilon]^2))}}, 
+ {{(2*(1 + y^2)*\[Epsilon])/((-1 + y)*y*(1 + y)), 0, 0, 0, 0, 0, 0, 0}, 
+  {0, (-6*(\[Epsilon] + y^2*\[Epsilon]))/((-1 + y)*y*(1 + y)), 
+   (7050*\[Epsilon])/(83*y), 0, 0, 0, 0, 0}, {0, (-166*\[Epsilon])/(1175*y), 
+   0, (-83*\[Epsilon])/(98*y), 0, 0, 0, 0}, {0, 0, (392*\[Epsilon])/(83*y), 
+   (2*(\[Epsilon] + y^2*\[Epsilon]))/((-1 + y)*y*(1 + y)), 0, 0, 0, 0}, 
+  {(2*\[Epsilon])/(21*y), 0, 0, 0, (2*(\[Epsilon] + y^2*\[Epsilon]))/
+    ((-1 + y)*y*(1 + y)), 0, (2*y*\[Epsilon])/((-1 + y)*(1 + y)), 0}, 
+  {0, 0, (20736*\[Epsilon])/(1105145*y*(1 + y^2)), 
+   (2592*(3*\[Epsilon] + y^4*\[Epsilon]))/(652435*(-1 + y)*y*(1 + y)*
+     (1 + y^2)), 0, (-2*(-1 + y)*(1 + y)*\[Epsilon])/(y*(1 + y^2)), 0, 
+   (2*\[Epsilon])/y}, {(-4*\[Epsilon])/(21*y), 0, 0, 0, 0, 0, 0, 0}, 
+  {0, 0, 0, (2592*\[Epsilon])/(652435*y), 0, (-2*\[Epsilon])/y, 0, 
+   (2*(1 + y^2)*\[Epsilon])/((-1 + y)*y*(1 + y))}}}

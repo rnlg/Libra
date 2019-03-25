@@ -75,6 +75,7 @@ StyleBox[\"Libra\",\nFontWeight->\"Bold\"]\) (\:2696) is a package for the manip
 
 
 $LibraUseFermat=False;
+$LibraTODO=False;
 
 
 NewDSystem;
@@ -1690,5 +1691,5 @@ EndPackage[]
 If[($LibraUseFermat=MemberQ[$ContextPath,"Fermatica`"]),Print["Using Fermatica for matrix operations!"]];
 
 
-CellPrint[Cell["TODO list:", "Text", CellFrame->{{0, 0}, {0, 1}}]];
-Print[Style["\[FilledSmallCircle] "<>#,{"Text",Small}]]&/@Libra`Private`todolist;
+If[$LibraTODO,CellPrint[Cell["TODO list:", "Text", CellFrame->{{0, 0}, {0, 1}}]];
+Print[Style["\[FilledSmallCircle] "<>#,{"Text",Small}]]&/@Libra`Private`todolist];
