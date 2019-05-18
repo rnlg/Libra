@@ -30,7 +30,7 @@ System`GenCoefficientRules[expr_List,vars_]:=System`GenCoefficientRules[#,vars]&
 System`GenCoefficientRules[expr_,vars_List]:=Module[
 {ps=Table[Unique[],{Length@vars}],expanded,tov,v},
 expanded=Expand[expr*Times@@(vars^ps)];
-tov=DeleteDuplicates[Cases[expanded,(__)(Times@@(vars^(Pattern[#,Blank[]]&/@ps))):>Evaluate[Times@@(vars^ps)->v@@ps],All]];
+tov=DeleteDuplicates[Cases[expanded,(_.)(Times@@(vars^(Pattern[#,Blank[]]&/@ps))):>Evaluate[Times@@(vars^ps)->v@@ps],All]];
 Thread[Last/@tov ->Last/@CoefficientRules[expanded/.tov,Last/@tov]]/.v->List/.Thread[ps->0]
 ];
 System`GenCoefficient[expr_,var_,pow_]:=System`GenCoefficient[expr,{var},{pow}];
@@ -75,7 +75,8 @@ StyleBox[\"Libra\",\nFontWeight->\"Bold\"]\) (\:2696) is a package for the manip
 
 
 $LibraUseFermat=False;
-$LibraTODO=False;
+If[Not[ValueQ[$LibraTODO]],$LibraTODO=False];
+$LibraVersion="1.0\[Beta]";
 
 
 NewDSystem;
@@ -134,9 +135,6 @@ PoincareRank;
 DSystemQ;
 
 
-System`PartitionByLengths;
-
-
 Balance;VisBalancing;(*Libra;*)
 
 
@@ -190,7 +188,9 @@ Begin["`Private`"]
 
 
 todolist={};
+donelist={};
 todo[s_String]:=AppendTo[todolist,s];
+done[s_String]:=AppendTo[donelist,s];
 
 
 History::usage="History[ds] is the central object. It is a list with the elements of the following form:
@@ -215,14 +215,14 @@ HistoryAppend::usage="HistoryAppend[ds,{M,{func,arg1,\[Ellipsis]},extra1\[Rule]\
 Options[HistoryAppend]={HistoryChop->False};
 
 
+HistoryAppend::chop="Did not change history to avoid overwriting forward entries. Use HistoryChop[`1`] first."
+
+
 HistoryAppend[ds_Symbol?DSystemQ,event:{_Association,_List,___},OptionsPattern[]]:=If[
 TrueQ[OptionValue[HistoryChop]||Length[History[ds]]<=HistoryIndex[ds]],
 Unprotect[ds];History[ds]^=Append[Take[History[ds],HistoryIndex[ds]],event];
 HistoryIndex[ds]^=HistoryIndex[ds]+1;Protect[ds];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]]<>".",Small]],
 Message[HistoryAppend::chop,ds]];
-
-
-HistoryAppend::chop="Did not change history to avoid overwriting forward entries. Use HistoryChop[`1`] first."
 
 
 HistoryAddExtra::usage="HistoryAddExtra[ds_Symbol,extra1\[Rule]\[Ellipsis],\[Ellipsis]] adds some optional information to the current history event.";
@@ -288,13 +288,20 @@ end=HistoryIndex[ds];
 Monitor[Do[
 Replace[History[ds][[i,2]],{
 {Transform,ds,tt_?SquareMatrixQ}:>(T=ODot[T,tt];If[inv,Ti=ODot[OInverse[tt],Ti]]),
-{Transform,ds,tt_?SquareMatrixQ,ii_}:>(t=IdentityMatrix[Length@ds];t[[ii,ii]]=tt;T=ODot[T,t];If[inv,Ti=ODot[OInverse[t],Ti]]),
+{Transform,ds,tt_?SquareMatrixQ,ii_}:>((*Modified 14.05.2019*)(*(*Deleted 14.05.2019*)t=IdentityMatrix[Length@ds];t[[ii,ii]]=tt;T=ODot[T,t];If[inv,Ti=ODot[OInverse[t],Ti]](*/Deleted 14.05.2019*)*)
+(*Added 14.05.2019*)T[[All,ii]]=ODot[T[[All,ii]],tt];If[inv,Ti[[ii]]=ODot[OInverse[tt],Ti[[ii]]]](*/Added 14.05.2019*)
+(*/Modified 14.05.2019*)),
 {Transform,ds,tt:{_?SquareMatrixQ,_?SquareMatrixQ}}:>(T=ODot[T,tt[[1]]];If[inv,Ti=ODot[tt[[2]],Ti]]),
 {Transform,ds,tt:{_?SquareMatrixQ,_?SquareMatrixQ},ii_}:>(
-t=IdentityMatrix[Length@ds];t[[ii,ii]]=tt[[1]];T=ODot[T,t];
+(*Modified 14.05.2019*)(*(*Deleted 14.05.2019*)t=IdentityMatrix[Length@ds];t[[ii,ii]]=tt[[1]];T=ODot[T,t];
 If[inv,
 t=IdentityMatrix[Length@ds];t[[ii,ii]]=tt[[2]];
-Ti=ODot[t,Ti]]),
+Ti=ODot[t,Ti]](*/Deleted 14.05.2019*)*)
+(*Added 14.05.2019*)
+T[[All,ii]]=ODot[T[[All,ii]],tt[[1]]];
+If[inv,
+Ti[[ii]]=ODot[tt[[2]],Ti[[ii]]]](*/Added 14.05.2019*)
+(*/Modified 14.05.2019*)),
 {ChangeVar,ds,tt_,nw_,___}:>(T=Factor[T/.tt];If[inv,Ti=Factor[Ti/.tt]];subs=Factor[subs/.tt];new=nw),
 {Factor,ds}:>(T=Factor[T];If[inv,Ti=Factor[Ti]]),
 {Simplify,ds,tt___}:>(T=Simplify[T,tt];If[inv,Ti=Simplify[Ti,tt]];subs=Simplify[subs,tt]),
@@ -343,6 +350,9 @@ Print["History is consistent!"];
 
 
 HistoryBurn::err="Can not burn!";
+
+
+HistoryBurn::usage="HistoryBurn[ds] "
 
 
 HistoryBurn[ds_?DSystemQ]:=Module[{T=IdentityMatrix[Length@ds],i,t,start,end,val},
@@ -801,17 +811,19 @@ SeriesCoefficient[series,{x,x0,#}]&/@Range[n,n+k]
 LeadingOrder::usage="LeadingOrder[expr,{x,x0}] gives the leading order of expansion in x.\nLeadingOrder[expr,poly,x] returns the leading order of the polynomial poly whic can be factorised for expr.";
 
 
-LeadingOrder[expr_,x_Symbol]:=Min[lorder[expr,{x,0}]]
-LeadingOrder[expr_,{x_Symbol,x0_},opts:OptionsPattern[]]:=Min[lorder[expr,{x,x0}]]
+(*Modified 18.05.2019*)(*Added 18.05.2019*)LeadingOrder[expr_List,a__]:=Min[LeadingOrder[#,a]&/@expr](*/Added 18.05.2019*)
+LeadingOrder[expr_,x_Symbol(*Added 18.05.2019*),opts:OptionsPattern[](*/Added 18.05.2019*)]:=(*Added 18.05.2019*)lorder[expr,{x,0}](*/Added 18.05.2019*)(*(*Deleted 18.05.2019*)Min[lorder[expr,{x,0}]](*/Deleted 18.05.2019*)*)
+LeadingOrder[expr_,{x_Symbol,x0_},opts:OptionsPattern[]]:=(*Added 18.05.2019*)lorder[expr,{x,x0}](*/Added 18.05.2019*)(*(*Deleted 18.05.2019*)Min[lorder[expr,{x,x0}]](*/Deleted 18.05.2019*)*)(*/Modified 18.05.2019*)
 
 
 (*SetAttributes[lorder,Listable]*)
 (*lorder[0,x_Symbol]=\[Infinity];
 lorder[expr_,x_Symbol]:=Plus@@Cases[Factors[expr],{x^a_.,n_}\[RuleDelayed]a n]*)
-lorder[expr_List,x_]:=lorder[#,x]&/@expr;
+(*(*Deleted 18.05.2019*)lorder[expr_List,x_]:=lorder[#,x]&/@expr;(*/Deleted 18.05.2019*)*)
 lorder[0,{x_Symbol,x0_}]=\[Infinity];
 lorder[expr_,{x_Symbol,x0_}]:=Plus@@Cases[FactorList[expr/.x->x+x0],{x^a_.,n_}:>a n];
 lorder[expr_,{x_Symbol,\[Infinity]}]:=Plus@@Cases[FactorList[expr/.x->1/x],{x^a_.,n_}:>a n];
+(*lorder[expr_,{x_Symbol,x0_}]:=Series[expr,{x,x0,-20}][[4]];*)
 lorder[expr_SeriesData,{x_Symbol,x0_}]/;MatchQ[Take[List@@expr,2],{x,x0}]:=expr[[4]];
 
 
@@ -995,7 +1007,7 @@ ToCompanionDS::usage="ToCompanionDS[{Subscript[c, 0],Subscript[c, 1],\[Ellipsis]
 ToCompanionDS[coefs_List]:=Append[Rest@IdentityMatrix[Length@coefs-1],Factor[Most[coefs]/-Last[coefs]]]
 
 
-todo["Transform: add support for notations."]
+done["Transform: add support for notations."]
 
 
 Transform::usage="Transform[\!\(\*
@@ -1448,7 +1460,27 @@ todo[" implement FactorOut and FactorDependence using Fermat and TGaussSolve"];
 
 BlockTriangularToFuchsian::usage="BlockTriangularToFuchsian[\!\(\*
 StyleBox[\"m\", \"TI\"]\),\!\(\*
-StyleBox[\"x\", \"TI\"]\)] gets rid of multiple poles in off-diagonal elements.";
+StyleBox[\"x\", \"TI\"]\)] gets rid of multiple poles in off-diagonal elements.\nBlockTriangularToFuchsian[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\),\!\(\*
+StyleBox[\"{\", \"TI\"]\)\!\(\*
+StyleBox[SubscriptBox[\"p\", \"1\"], \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*SubscriptBox[
+StyleBox[\"p\", \"TI\"], \(2\)]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Ellipsis]\", \"TI\"]\)\!\(\*
+StyleBox[\"}\", \"TI\"]\)] gets rid of multiple poles in off-diagonal elements for points \!\(\*
+StyleBox[SubscriptBox[\"p\", \"1\"], \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*SubscriptBox[
+StyleBox[\"p\", \"TI\"], \(2\)]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Ellipsis]\", \"TI\"]\) only. Each \!\(\*
+StyleBox[SubscriptBox[\"p\", \"i\"], \"TI\"]\) is either a point \!\(\*
+StyleBox[\"p\", \"TI\"]\) or a pair {\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"r\", \"TI\"]\)}, where \!\(\*
+StyleBox[\"r\", \"TI\"]\) is a Poincare rank.";
 
 
 Options[BlockTriangularToFuchsian]={
@@ -1475,7 +1507,7 @@ transform,c,
 poles,oc=Boole[Not[TrueQ@OptionValue[Simplify]]],
 blocks=EntangledBlocksIndices[matr]
 },
-poles=Reverse@DeleteCases[Replace[p,{All:>PolesInfo[matr,x],_:>({#,PoincareRank[matr,{x,#}]}&/@p)}],{_,_?Negative}];
+(*Modified 18.05.2019*)poles=Reverse@DeleteCases[Replace[p,{All:>PolesInfo[matr,x],_:>Replace[p,{z_List:>z,z_:>{z,PoincareRank[matr,{x,z}]}},{1}]}],{_,_?Negative}](*/Modified 18.05.2019*);
 transform=IdentityMatrix[n];
 If[poles=={},Return[transform]];
 (*(*Deleted 09.02.2018*)If[OptionValue[Check],If[!And@@(FuchsianQ[m[[#,#]],x]&/@blocks),Message[BlockTriangularToFuchsian::blocks]];Return[IdentityMatrix[n]]];(*/Deleted 09.02.2018*)*)
@@ -1605,7 +1637,7 @@ PolesInfo[ds_?DSystemQ,x_Symbol]:=PolesInfo[ds[x],x]
 
 
 PolesInfo[ds_Association]:=(#->PolesInfo[ds[#],#])&/@Keys[ds]
-PolesInfo[ds_?DSystemQ,x_Symbol]:=(#->PolesInfo[ds[#],#])&/@Keys[ds]
+PolesInfo[ds_?DSystemQ]:=(#->PolesInfo[ds[#],#])&/@Keys[ds]
 
 
 PolesInfo::usage="PolesInfo[\!\(\*
@@ -1691,5 +1723,7 @@ EndPackage[]
 If[($LibraUseFermat=MemberQ[$ContextPath,"Fermatica`"]),Print["Using Fermatica for matrix operations!"]];
 
 
-If[$LibraTODO,CellPrint[Cell["TODO list:", "Text", CellFrame->{{0, 0}, {0, 1}}]];
-Print[Style["\[FilledSmallCircle] "<>#,{"Text",Small}]]&/@Libra`Private`todolist];
+If[$LibraTODO,CellPrint[Cell["todo:", "Print", CellFrame->{{0, 0}, {0, 1}}]];
+Print[Style["\[FilledSmallCircle] "<>#,{"Text",Small}]]&/@Libra`Private`todolist;
+CellPrint[Cell["done:", "Print", CellFrame->{{0, 0}, {0, 1}}]];
+Print[Style["\[Checkmark] "<>#,{"Text",Small}]]&/@Libra`Private`donelist];
