@@ -35,7 +35,7 @@ Thread[Last/@tov ->Last/@CoefficientRules[expanded/.tov,Last/@tov]]/.v->List/.Th
 ];
 System`GenCoefficient[expr_,var_,pow_]:=System`GenCoefficient[expr,{var},{pow}];
 System`GenCoefficient[expr_,vars_List,pows_List]:=Module[{ps=Table[Unique[],{Length@vars}],expanded,v},
-expanded=ExpandAll[expr*Times@@(vars^ps)];
+expanded=Expand[expr*Times@@(vars^ps)];
 Coefficient[expanded/.Times@@(vars^Expand[ps+pows]):>v,v]
 ]
 
@@ -87,13 +87,16 @@ HistoryAppend;HistoryAddExtra;HistoryDeleteExtra;HistoryConsolidate;
 HistoryBurn;
 
 
-Notations;AddNotation;
+Notations;AddNotation;ModNotation;RuleToNotation;NotationToRule
 
 
 EntangledBlocksIndices;DependentRowIndices;DependentColumnIndices;DiagonalBlocksIndices;
 
 
 DeleteDependentRows;
+
+
+UseFermat::usage="UseFermat is an option for many procedures which determines whether to use Fermat (Fermatica package required)";
 
 
 ODot;OInverse;
@@ -105,7 +108,7 @@ Transform;ChangeVar;
 TClosure;
 
 
-Denominators;PolesPosition;PolesInfo;
+Denominators;PolesPosition;PolesInfo;DenominatorsInfo;
 
 
 DiagonalQ;
@@ -147,7 +150,8 @@ FactorOut;FactorDependence;
 GaussSolve;
 
 
-InvertMod;QuolyMod;OQuolyMod;
+InvertMod;QuolyMod;ExtendedQuolyMod;LeadingQModTerm;LeadingQModOrder;
+OQuolyMod;
 
 
 DenominatorOrder;
@@ -215,7 +219,7 @@ HistoryAppend::usage="HistoryAppend[ds,{M,{func,arg1,\[Ellipsis]},extra1\[Rule]\
 Options[HistoryAppend]={HistoryChop->False};
 
 
-HistoryAppend::chop="Did not change history to avoid overwriting forward entries. Use HistoryChop[`1`] first."
+HistoryAppend::chop="Did not change history to avoid overwriting forward entries. Use HistoryChop[`1`] first or execute SetOptions[HistoryAppend,HistoryChop\[Rule]False]."
 
 
 HistoryAppend[ds_Symbol?DSystemQ,event:{_Association,_List,___},OptionsPattern[]]:=If[
@@ -240,7 +244,7 @@ HistoryDeleteExtra::usage="HistoryDeleteExtra[ds_Symbol,extra1,\[Ellipsis]] remo
 HistoryDeleteExtra[ds_Symbol?DSystemQ,extras___]:=(
 Unprotect[ds];History[ds]^=ReplacePart[History[ds],HistoryIndex[ds]->DeleteCases[History[ds][[HistoryIndex[ds]]],Alternatives@@extras->_]];
 Protect[ds];
-Print[Style["Added extra(s) "<>StringRiffle[ToString/@extras,","]<>" to current history entry.",Small]])
+Print[Style["Deleted extra(s) "<>StringRiffle[ToString/@extras,","]<>" from current history entry.",Small]])
 
 
 Undo[ds_?DSystemQ,n_Integer:1]:=If[HistoryIndex[ds]>n,
@@ -274,7 +278,8 @@ HistoryConsolidate::chop="Did not change history to avoid overwriting forward en
 
 
 Options[HistoryConsolidate]={HistoryChop->False,HistoryAppend->True,
-Inverse->True(*whether to calculate inverse transformation matrix*)
+Inverse->True(*whether to calculate inverse transformation matrix*),
+UseFermat->Automatic
 };
 
 
@@ -526,19 +531,399 @@ Overlay[{ProgressIndicator[i,{0,l}],ToString[i]<>"/"<>ToString[l]},Alignment->Ce
 todo["Implement GaussSolve for matrices. Or at least better version of NullSpace."]
 
 
-InvertMod::usage="InvertMod[poly1,poly2,x] gives the polynomial invpoly1 such that invpoly1*poly1= 1 (mod poly2).";
+InvertMod::usage="InvertMod[\!\(\*SubscriptBox[
+StyleBox[\"P\", \"TI\"], \(1\)]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*SubscriptBox[
+StyleBox[\"P\", \"TI\"], \(2\)]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\)] gives the polynomial \!\(\*
+StyleBox[\"R\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\), such that \!\(\*
+StyleBox[\"R\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"\[CenterDot]\", \"TI\"]\)\!\(\*SubscriptBox[
+StyleBox[\"P\", \"TI\"], \(1\)]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)= 1 mod \!\(\*SubscriptBox[
+StyleBox[\"P\", \"TI\"], \(2\)]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\).";
 
 
 InvertMod[poly1_,poly2_,x_]:=Module[{gcd,u,v},{gcd,{u,v}}=PolynomialExtendedGCD[poly1,poly2,x];If[FreeQ[gcd,x],u/gcd,1/0]
 ]
 
 
-QuolyMod::usage="QuolyMod[quoly,poly,x] gives the \"remainder\" of the rational function quoly when divided by poly.";
+QuolyMod::usage="QuolyMod[\!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\)] gives the \"remainder\" \!\(\*
+StyleBox[\"R\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) of the rational function \!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) when divided by polynomial \!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\). Therefore, \!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"=\", \"TI\"]\)\!\(\*
+StyleBox[\"R\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"+\", \"TI\"]\)\!\(\*
+StyleBox[\" \", \"TI\"]\)\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"\[CenterDot]\", \"TI\"]\)\!\(\*
+StyleBox[\"S\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\), where \!\(\*
+StyleBox[\"S\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) is a rational function with denominator being mutually simple with \!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\).";
 
 
-QuolyMod[quoly_List,args__]:=QuolyMod[#,args]&/@quoly;QuolyMod[quoly_,poly_,x_]:=Module[{num,den},
+Options[QuolyMod]={Check->False};
+QuolyMod::wrongargs="Something wrong with the arguments of QuolyMod.";
+
+
+QuolyMod[quoly_List,args__,opts:OptionsPattern[]]:=QuolyMod[#,args,opts]&/@quoly;QuolyMod[quoly_,poly_,x_,OptionsPattern[]]:=Module[{num,den},
+If[OptionValue[Check]&&!( RatFuncQ[quoly,x]&&PolyQ[poly,x]),Message[QuolyMod::wrongargs];Abort[]];
 {num,den}=Through[{Numerator,Denominator}@Together@quoly];
 Together@PolynomialRemainder[InvertMod[den,poly,x]*num,poly,x]
+]
+
+
+ExtendedQuolyMod::usage="ExtendedQuolyMod[\!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\)] gives the pair {\!\(\*
+StyleBox[\"k\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"R\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)}, where \!\(\*
+StyleBox[\"k\", \"TI\"]\) is the \"leading order\" and \!\(\*
+StyleBox[\"R\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) is the \"remainder\". Therefore, \!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"=\", \"TI\"]\)\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*SuperscriptBox[
+StyleBox[\")\", \"TI\"], \(k\)]\)(\!\(\*
+StyleBox[\"R\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"+\", \"TI\"]\)\!\(\*
+StyleBox[\" \", \"TI\"]\)\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"\[CenterDot]\", \"TI\"]\)\!\(\*
+StyleBox[\"S\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\), where \!\(\*
+StyleBox[\"S\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) is a rational function with denominator being mutually simple with \!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\).";
+
+
+Options[ExtendedQuolyMod]={Check->False};
+ExtendedQuolyMod::wrongargs="Something wrong with the arguments of ExtendedQuolyMod.";
+
+
+ExtendedQuolyMod[quoly_List,args__,opts:OptionsPattern[]]:=ExtendedQuolyMod[#,args.opts]&/@quoly;ExtendedQuolyMod[quoly_,poly_,x_,OptionsPattern[]]:=Module[{num,den,k=0},
+If[OptionValue[Check]&&!( RatFuncQ[quoly,x]&&PolyQ[poly,x]),Message[ExtendedQuolyMod::wrongargs];Abort[]];
+{num,den}=Through[{Numerator,Denominator}@Together@quoly];
+If[PossibleZeroQ[num],Return[{\[Infinity],0}]];
+While[PolynomialQ[den,x](*\[LeftArrow]this is to account for reducible poly*)&&Not[FreeQ[PolynomialGCD[den,poly],x]],
+den=Cancel[den/poly];k--;
+];
+While[PolynomialQ[num,x](*\[LeftArrow]this is to account for reducible poly*)&&Not[FreeQ[PolynomialGCD[num,poly],x]],
+num=Cancel[num/poly];k++;
+];
+If[!PolynomialQ[num,x],num=Cancel[num*poly];k--];
+{k,QuolyMod[num/den,poly,x]}
+]
+
+
+LeadingQModOrder::usage="LeadingQModOrder[\!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\)] gives the \"leading order\"  \!\(\*
+StyleBox[\"k\", \"TI\"]\) such that, \!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"=\", \"TI\"]\)\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*SuperscriptBox[
+StyleBox[\")\", \"TI\"], \(k\)]\)\!\(\*
+StyleBox[\"S\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\), where both the numerator and denominator of \!\(\*
+StyleBox[\"S\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) are mutually simple with \!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\).";
+
+
+Options[LeadingQModOrder]={Check->False,Parallelize->False};
+LeadingQModOrder::wrongargs="Something wrong with the arguments of LeadingQModOrder.";
+
+
+LeadingQModOrder[quoly_List,args__,opts:OptionsPattern[]]:=If[OptionValue[Parallelize],
+DistributeDefinitions[LeadingQModOrder];
+Min[ParallelMap[LeadingQModOrder[#,args,opts]&,quoly,{ArrayDepth[quoly]}]],
+Min[Map[LeadingQModOrder[#,args,opts]&,quoly,{ArrayDepth[quoly]}]]
+];
+
+
+LeadingQModOrder[quoly_,poly_,x_,OptionsPattern[]]:=Module[{num,den,rmndr,k=0},
+If[FreeQ[poly,x],Return[\[Infinity]]];
+If[OptionValue[Check]&&!( RatFuncQ[quoly,x]&&PolyQ[poly,x]),Message[LeadingQModOrder::wrongargs];Abort[]];
+{num,den}=Through[{Numerator,Denominator}@Together@quoly];
+If[PossibleZeroQ[num],Return[\[Infinity]]];
+While[True,
+{den,rmndr}=PolynomialQuotientRemainder[den,poly,x];
+If[rmndr=!=0,Break[]];
+k--;
+];
+While[True,
+{num,rmndr}=PolynomialQuotientRemainder[num,poly,x];
+If[rmndr=!=0,Break[]];
+k++;
+];
+(*While[PolynomialQ[den,x](*\[LeftArrow]this is to account for reducible poly*)&&Not[FreeQ[PolynomialGCD[den,poly],x]],den=Cancel[den/poly];k--;
+];
+While[PolynomialQ[num,x](*\[LeftArrow]this is to account for reducible poly*)&&Not[FreeQ[PolynomialGCD[num,poly],x]],
+num=Cancel[num/poly];k++;
+];
+If[!PolynomialQ[num,x],k--];*)
+k
+]
+
+
+todo["Redefine LeadingQModTerm for matrices."];
+
+
+LeadingQModTerm::usage="LeadingQModTerm[\!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\)] gives the result of the form \!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*SuperscriptBox[
+StyleBox[\")\", \"TI\"], \(k\)]\)(\!\(\*
+StyleBox[\"R\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\), where \!\(\*
+StyleBox[\"k\", \"TI\"]\) is the \"leading order\" and \!\(\*
+StyleBox[\"R\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) is the \"remainder\", such that \!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"=\", \"TI\"]\)\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*SuperscriptBox[
+StyleBox[\")\", \"TI\"], \(k\)]\)(\!\(\*
+StyleBox[\"R\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"+\", \"TI\"]\)\!\(\*
+StyleBox[\" \", \"TI\"]\)\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"\[CenterDot]\", \"TI\"]\)\!\(\*
+StyleBox[\"S\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\), where \!\(\*
+StyleBox[\"S\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) is a rational function with denominator being mutually simple with \!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\).";
+
+
+Options[LeadingQModTerm]={Check->False};
+LeadingQModTerm::wrongargs="Something wrong with the arguments of LeadingQModTerm.";
+
+
+LeadingQModTerm[quoly_List,args__,opts:OptionsPattern[]]:=LeadingQModTerm[#,args.opts]&/@quoly;
+
+
+LeadingQModTerm[quoly_,poly_,x_,OptionsPattern[]]:=Module[{num,den,k},
+If[OptionValue[Check]&&!( RatFuncQ[quoly,x]&&PolyQ[poly,x]),Message[LeadingQModTerm::wrongargs];Abort[]];
+k=LeadingQModOrder[quoly,poly,x,Check->False];
+poly^k*QuolyMod[quoly/poly^k,poly,x]
+]
+
+
+todo["Redefine LeadingQModTerm for matrices."];
+
+
+LeadingQModTerm::usage="LeadingQModTerm[\!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\)] gives the result of the form \!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*SuperscriptBox[
+StyleBox[\")\", \"TI\"], \(k\)]\)(\!\(\*
+StyleBox[\"R\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\), where \!\(\*
+StyleBox[\"k\", \"TI\"]\) is the \"leading order\" and \!\(\*
+StyleBox[\"R\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) is the \"remainder\", such that \!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"=\", \"TI\"]\)\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*SuperscriptBox[
+StyleBox[\")\", \"TI\"], \(k\)]\)(\!\(\*
+StyleBox[\"R\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"+\", \"TI\"]\)\!\(\*
+StyleBox[\" \", \"TI\"]\)\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"\[CenterDot]\", \"TI\"]\)\!\(\*
+StyleBox[\"S\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\), where \!\(\*
+StyleBox[\"S\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) is a rational function with denominator being mutually simple with \!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\).";
+
+
+Options[LeadingQModTerm]={Check->False};
+LeadingQModTerm::wrongargs="Something wrong with the arguments of LeadingQModTerm.";
+
+
+LeadingQModTerm[quoly_List,args__,opts:OptionsPattern[]]:=LeadingQModTerm[#,args.opts]&/@quoly;LeadingQModTerm[quoly_,poly_,x_,OptionsPattern[]]:=Module[{num,den,k=0},
+If[OptionValue[Check]&&!( RatFuncQ[quoly,x]&&PolyQ[poly,x]),Message[LeadingQModTerm::wrongargs];Abort[]];
+{num,den}=Through[{Numerator,Denominator}@Together@quoly];
+If[PossibleZeroQ[num],Return[{\[Infinity],0}]];
+While[PolynomialQ[den,x](*\[LeftArrow]this is to account for reducible poly*)&&Not[FreeQ[PolynomialGCD[den,poly],x]],
+den=Cancel[den/poly];k--;
+];
+While[PolynomialQ[num,x](*\[LeftArrow]this is to account for reducible poly*)&&Not[FreeQ[PolynomialGCD[num,poly],x]],
+num=Cancel[num/poly];k++;
+];
+If[!PolynomialQ[num,x],num=Cancel[num*poly];k--];
+poly^k*QuolyMod[num/den,poly,x]
 ]
 
 
@@ -659,11 +1044,26 @@ StyleBox[\"i\", \"TI\"], \(k + 1\)]\),\[Ellipsis]} of columns and rows of \!\(\*
 StyleBox[\"m\", \"TI\"]\) transforms it to lower block-triangular form. The partition indicates separate blocks. The order guarantees that dependent blocks appear earlier.";
 
 
-EntangledBlocksIndices[m_?SquareMatrixQ,tc:(True|False):False]:=Module[{eb},eb=SortBy[Union[Flatten[Position[#,1,{1}]]&/@If[tc,m,TClosure[m]]],{Last@#,Length@#}&];
-Table[Complement@@Reverse[Take[eb,i]],{i,Length@eb}]]
+EntangledBlocksIndices[m_?SquareMatrixQ,tc:(True|False):False]:=Module[{ss},ss=SortBy[Union[Flatten[Position[#,1,{1}]]&/@If[tc,m,TClosure[m]]],{Last@#,Length@#}&];
+Table[Complement@@Reverse[Take[ss,i]],{i,Length@ss}]]
 
 
-EntangledBlocksIndices[ds_?DSystemQ,tc:(False):False]:=Module[{eb},eb=SortBy[Union[Flatten[Position[#,1,{1}]]&/@TClosure[ds]],{Last@#,Length@#}&];Table[Complement@@Reverse[Take[eb,i]],{i,Length@eb}]]
+EntangledBlocksIndices[ds_?DSystemQ,tc:(False):False]:=Module[{ss},ss=SortBy[Union[Flatten[Position[#,1,{1}]]&/@TClosure[ds]],{Last@#,Length@#}&];Table[Complement@@Reverse[Take[ss,i]],{i,Length@ss}]]
+
+
+OffDiagonalBlocksIndices::usage="OffDiagonalBlocksIndices[\!\(\*
+StyleBox[\"m\", \"TI\"]\)] gives a list of pairs {{{\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(2\)]\),\[Ellipsis]},{\!\(\*SubscriptBox[
+StyleBox[\"j\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"j\", \"TI\"], \(2\)]\),\[Ellipsis]}},\[Ellipsis]} such that each pair corresponds to the indices of the off-diagonal block. The order should be good for treating blocks with BlockTriangularToFuchsian.";
+
+
+OffDiagonalBlocksIndices[m_?SquareMatrixQ,tc:(True|False):False]:=Module[{ss,eb,hie=If[tc,m,TClosure[m]],f},
+ss=SortBy[DeleteDuplicates[Flatten[Position[#,1,{1}]]&/@hie],{Last@#,Length@#}&];
+eb=Table[Complement@@Reverse[Take[ss,i]],{i,Length@ss}];
+Flatten[Table[If[SubsetQ[ss[[i]],eb[[j]]],eb[[{i,j}]],Unevaluated[Sequence[]]],{i,Length@ss},{j,i-1,1,-1}],1]
+]
 
 
 DiagonalBlocksIndices::usage="DiagonalBlocksIndices[\!\(\*
@@ -709,13 +1109,21 @@ $LibraUseFermat/:Set[$LibraUseFermat,val_]:=If[(val===False)||(val===True&&Membe
 OQuolyMod::usage="OQuolyMod[quoly,poly,x] gives the \"remainder\" of the rational function quoly when divided by poly. First capital 'O' stands for 'optimized'.";
 
 
+todo["Remove obsolete definitionfor OQuolyMod[quoly_,rule:_Rule|_RuleDelayed]"];
+
+
 OQuolyMod[quoly_,rule:_Rule|_RuleDelayed]:=OQuolyMod[quoly,rule[[2]],rule[[1]]]
+
+
 OQuolyMod[quoly_,poly_,x_Symbol]:=If[$LibraUseFermat,
 Replace[CheckAbort[FQuolyMod[quoly,poly,x],$Failed],$Failed:>(Print["OQuolyMod: resorting to Mathematica\[Ellipsis]"];QuolyMod[quoly,poly,x])],
 QuolyMod[quoly,poly,x]]
 
 
 FQuolyMod[exs__]:=Monitor[Fermatica`FQuolyMod[exs],Style["Executing Fermatica`FQuolyMod...",Tiny],1]
+
+
+todo["Make better version of QuolyMod and especially FQuolyMod to deal with several successive moddings wrt to different polynomials and variables."];
 
 
 ODot::usage="ODot[m1,m2,...] is an optimized dot product."
@@ -827,18 +1235,6 @@ lorder[expr_,{x_Symbol,\[Infinity]}]:=Plus@@Cases[FactorList[expr/.x->1/x],{x^a_
 lorder[expr_SeriesData,{x_Symbol,x0_}]/;MatchQ[Take[List@@expr,2],{x,x0}]:=expr[[4]];
 
 
-LeadingOrder[expr_,poly_,x_Symbol]:=Module[{n,d},
-{n,d}=Through[{Numerator,Denominator}[Together@expr]];
-lorder[n,poly,x]-lorder[d,poly,x]
-]
-
-
-lorder[poly1_,poly_,x_Symbol]:=Module[{div=poly1,rem,i=0},
-While[({div,rem}=PolynomialQuotientRemainder[div,poly,x];rem===0),
-i++];
-i]
-
-
 SeriesSolutionData::usage="SeriesSolutionData[M,{x,x0,n}] constructs data for generalized power series solution of the system \[PartialD]U=M\[InvisibleComma]U.\nGeneralized form: SeriesSolutionData[M,{x,y(x),n}].\n    \[FilledSmallCircle] M should be rational.\n    \[FilledSmallCircle] M should be Fuchsian at x=x0.\n    \[FilledSmallCircle] Residue A at x=x0 should be free of resonances.\n    \[FilledSmallCircle] SeriesSolutionData returns data U with the asymptotics (x-x0)^A.\nReturned data has the form of a list with each element having the form {\[Lambda],\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\),s,{\!\(\*SubscriptBox[\(T\), \(1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]T\), \(s\)]\)}&,C[\[Lambda],0..\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\)]}.";
 SeriesSolutionData::notrat="Matrix received is not rational in `1`.";
 SeriesSolutionData::ppr="Positive Poincare rank at `1`=`2`.";
@@ -863,7 +1259,7 @@ statusline="Getting rid  of denominators";
 (*poles=DeleteCases[PolesPosition[M,y],\[Infinity]|0];
 Q=Times@@((y-#)^(1+PoincareRank[M,{y,#}])&/@poles);*)
 Q=1;
-While[{}=!=(dens=Denominators[Together[M Q],_?(FreeQ[#,y]&)]),
+While[{}=!=(dens=Denominators[Together[M Q],y]),
 Q*=PolynomialLCM[Sequence@@dens,y];
 ];
 Q=Numerator@Together[Q/y];
@@ -1049,15 +1445,15 @@ transform[m_,t_,ti_,x_]:=ODot[ti,ODot[m,t]-D[t,x]];
 transform[m_,t_,ti_,x_,{}]:=ODot[ti,ODot[m,t]-D[t,x]];
 
 
-transform[m_,t_,ti_,x_,notas:{__Rule}]:=Internal`InheritedBlock[{D},SetOptions[D,NonConstants->First/@notas];ODot[ti,ODot[m,t]-(D[t,x]/.First[Solve[0==D[Last/@notas,x],D[First/@notas,x]]])]]
+transform[m_,t_,ti_,x_,notas:{__Rule}]:=Internal`InheritedBlock[{D},
+SetOptions[D,NonConstants->First/@notas];
+(*Modified 18.05.2019*)Fold[ModNotation,ODot[ti,ODot[m,t]-(D[t,x]/.First[Solve[0==D[Last/@notas,x],D[First/@notas,x]]])],notas](*/Modified 18.05.2019*)
+]
 
 
 Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],notas:_Association|{___Rule}:{}]:=Transform[m,{t,OInverse@t,True},x,i,notas];
 Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False},x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],notas:_Association|{___Rule}:{}]:=Module[{mt},If[checked||ODot[ti,t]===IdentityMatrix[Length@t],
 mt=transformrange[m,t,ti,x,i,notas/.Association->List];
-If[notas=!={},
-mt=Fold[OQuolyMod,mt,notas/.Association->List]
-];
 mt,
 Message[Transform::notinv];Abort[]]
 ];
@@ -1069,9 +1465,9 @@ ii=Replace[i,{Span[a_Integer,b_Integer]:>Range[Mod[a+l+1,l+1],Mod[b+l+1,l+1]],Sp
 If[Not[MatchQ[ii,{(_Integer?(1<=#<= l&))..}]],Message[Transform::range,i];Abort[]];
 mt[[ii,ii]]=transform[m[[ii,ii]],t,ti,x,notas];
 jj=Complement[DependentColumnIndices[m,ii],ii];
-If[jj=!={},mt[[jj,ii]]=ODot[mt[[jj,ii]],t]];
+If[jj=!={},mt[[jj,ii]]=(*Modified 18.05.2019*)Fold[ModNotation,ODot[mt[[jj,ii]],t],notas/.Association->List](*/Modified 18.05.2019*)];
 jj=Complement[DependentRowIndices[m,ii],ii];
-If[jj=!={},mt[[ii,jj]]=ODot[ti,mt[[ii,jj]]]];
+If[jj=!={},mt[[ii,jj]]=(*Modified 18.05.2019*)Fold[ModNotation,ODot[ti,mt[[ii,jj]]],notas/.Association->List](*/Modified 18.05.2019*)];
 mt
 ];
 
@@ -1118,6 +1514,117 @@ Protect[ds];
 HistoryAppend[ds,{ds[],{AddNotation,ds,y->p}}];
 Protect[y];
 ds[[]]
+]
+
+
+ModNotation::usage="ModNotation[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"y\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Rule]\", \"TI\"]\)\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"y\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)] is a shortcut for OQuolyMod[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"y\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"y\", \"TI\"]\)]. Should be good for reducing dependence on notations.";
+
+
+ModNotation[quoly_,rule:_Rule|_RuleDelayed]:=OQuolyMod[quoly,rule[[2]],rule[[1]]]
+
+
+todo["remove _RuleDelayed in ModNotation[quoly_,rule:_Rule|_RuleDelayed]"]
+
+
+RuleToNotation::usage="RuleToNotation[\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Rule]\", \"TI\"]\)\!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"y\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"y\", \"TI\"]\)] gives a rule \!\(\*
+StyleBox[\"y\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Rule]\", \"TI\"]\)\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"y\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\), where \!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"y\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) is the numerator of \!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\"-\", \"TI\"]\)\!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"y\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\).";
+
+
+RuleToNotation::error="The function `1` is not rational.";
+
+
+RuleToNotation[x_->q_,y_]:=Module[{p},
+If[RatFuncQ[q,y],
+p=Numerator@Together[q-x];Return[y->p],
+Message[RuleToNotation::error,q];
+Return[$Failed]
+]
+]
+
+
+NotationToRule::usage="NotationToRule[\!\(\*
+StyleBox[\"y\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Rule]\", \"TI\"]\)\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"y\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"y\", \"TI\"]\)] gives a rule \!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Rule]\", \"TI\"]\)\!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"y\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\), where \!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"y\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) is the solution of \!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"y\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"=\", \"TI\"]\)\!\(\*
+StyleBox[\"0\", \"TI\"]\) wrt \!\(\*
+StyleBox[\"x\", \"TI\"]\).";
+
+
+NotationToRule::error="The equation `1`=0 is not sutable for introducing notation.";
+
+
+NotationToRule[y_->p_,x_]:=Module[{rule},
+If[PolyQ[p,x|y]&&Exponent[p,x]==1,
+{{rule}}=Solve[p==0,x];Return[rule],
+Message[NotationToRule::error,p];
+Return[$Failed]
+]
 ]
 
 
@@ -1511,7 +2018,7 @@ blocks=EntangledBlocksIndices[matr]
 transform=IdentityMatrix[n];
 If[poles=={},Return[transform]];
 (*(*Deleted 09.02.2018*)If[OptionValue[Check],If[!And@@(FuchsianQ[m[[#,#]],x]&/@blocks),Message[BlockTriangularToFuchsian::blocks]];Return[IdentityMatrix[n]]];(*/Deleted 09.02.2018*)*)
-Function[{x0},
+Function[{x0,order},
 (*Cycle over blocks.*)
 Monitor[
 Do[
@@ -1523,7 +2030,7 @@ vars=Table[Unique["c"],{Length@ind1},{Length@ind2}];
 c[[ind1,ind2]]=vars;
 vars=Flatten@vars;
 (*matrix generated*)
-order=PoincareRank[m[[ind1,ind2]],{x,x0}];
+(*(*Deleted 19.05.2019*)order=PoincareRank[m[[ind1,ind2]],{x,x0}];(*/Deleted 19.05.2019*)*)
 (*Now cycle over pole order*)
 Unset[i2];
 Do[
@@ -1537,7 +2044,7 @@ transform=ODot[transform,(t/.sol/.Thread[Flatten@c->0])];
 ,{i2,order,oc,-1}]
 ,{i1,2,Length@blocks}],
 Row[{x0,":",i1,"\[LeftArrow]",i2}]]
-]/@First/@poles;
+](*Modified 19.05.2019*)@@@poles;(*/Modified 19.05.2019*)
 Return[transform];
 ]
 
@@ -1561,28 +2068,29 @@ Return[Check[Partition[LinearSolve[T,-Flatten@B],m],Indeterminate*B,{LinearSolve
 
 Denominators::usage="Denominators[\!\(\*
 StyleBox[\"m\", \"TI\"]\)|\!\(\*
-StyleBox[\"ds\", \"TI\"]\)] tries to define denominators in the system.";
+StyleBox[\"ds\", \"TI\"]\)] tries to define denominators in the system.\nDenominators[\!\(\*
+StyleBox[\"m\", \"TI\"]\)|\!\(\*
+StyleBox[\"ds\", \"TI\"]\),\!\(\*
+StyleBox[\"pat\", \"TI\"]\)] gives only denominators depending on \!\(\*
+StyleBox[\"pat\", \"TI\"]\).";
 
 
-Denominators[m_List,excl_:_?NumericQ]:=DeleteCases[Union@@((First/@FactorList[#])&/@Denominator/@Flatten[m]),excl]
-Denominators[ex_,excl_:_?NumericQ]:=DeleteCases[First/@FactorList[Denominator@ex],excl]
-
-
-Denominators[ds_?DSystemQ]:=Module[{dens},
+Denominators[ds_?DSystemQ,pat_:_,excl_:_?NumericQ]:=Module[{dens},
 dens=Denominators/.Drop[History[ds][[HistoryIndex[ds]]],2];
 If[dens===Denominators,
-dens=Denominators[Values[History[ds][[HistoryIndex[ds],1]]],_?(FreeQ[#,Alternatives@@Variables[ds]]&)];
+dens=Denominators[Values[ds[]],Alternatives@@Variables[ds]];
 HistoryAddExtra[ds,Denominators->dens],
 Print[Style["Read Denominators from extras.",Small]]
 ];
-dens
+DeleteCases[dens,_?(FreeQ[#,pat]&)|excl]
 ]
 
 
-Denominators[as_Assiciation]:=Denominators[Values[History[as][[HistoryIndex[as],1]]],_?(FreeQ[#,Alternatives@@Variables[as]]&)]
+Denominators[m_List,pat_:_,excl_:_?NumericQ]:=Sort@DeleteCases[DeleteDuplicates@Flatten[(First/@FactorList[#])&/@Denominator/@Flatten[m]],_?(FreeQ[#,pat]&)|excl]
+Denominators[ex_,pat_:_,excl_:_?NumericQ]:=Sort@DeleteCases[First/@FactorList[Denominator@ex],_?(FreeQ[#,pat]&)|excl]
 
 
-Denominators[ds_?DSystemQ,excl_]:=Denominators[Values[History[ds][[HistoryIndex[ds],1]]],excl]
+Denominators[as_Assiciation,pat_:_,excl_:_?NumericQ]:=Denominators[Values[as],Alternatives@@Keys[as],_?(FreeQ[#,pat]&)|excl]
 
 
 DenominatorOrder::usage="DenominatorOrder[m|ds,den] tries to define the power of the denominator. Negative values correspond to numerators.";
@@ -1625,7 +2133,7 @@ StyleBox[\"x\", \"TI\"], \(0\)]\)\[NotEqual]\[Infinity] the Poincare rank is the
 StyleBox[\"r\", \"TI\"]\)=-1 for regular point). For \!\(\*SubscriptBox[\(x\), \(0\)]\)=\[Infinity] the Poincare rank is 1 minus the leading series order.";
 
 
-PoincareRank[m_List,{x_Symbol,x0_}]:=Max[-1,2*Boole[x0===\[Infinity]]-1-LeadingOrder[m,{x,x0}]]
+PoincareRank[m_,{x_Symbol,x0_}]:=Max[-1,2*Boole[x0===\[Infinity]]-1-LeadingOrder[m,{x,x0}]]
 
 
 PoincareRank[ds_Association,{x_Symbol,x0_}]:=PoincareRank[ds[x],{x,x0}]
@@ -1649,7 +2157,7 @@ StyleBox[\"x\", \"TI\"], \(i\)]\) is the position of the pole, and \!\(\*Subscri
 StyleBox[\"r\", \"TI\"], \(i\)]\) is its Poincare rank.";
 
 
-PolesInfo[m_List,x_Symbol]:=Module[{xs,n},
+PolesInfo[m_,x_Symbol]:=Module[{xs,n},
 xs=PolesPosition[m,x];
 {#,PoincareRank[m,{x,#}]}&/@xs
 ]
@@ -1657,6 +2165,25 @@ xs=PolesPosition[m,x];
 
 PolesInfo[ds_Association,x_Symbol]:=PolesInfo[ds[x],x]
 PolesInfo[ds_?DSystemQ,x_Symbol]:=PolesInfo[ds[x],x]
+
+
+DenominatorsInfo::usage="DenominatorsInfo[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\)] gives a list of pairs {\!\(\*SubscriptBox[
+StyleBox[\"d\", \"TI\"], \(i\)]\),\!\(\*SubscriptBox[
+StyleBox[\"r\", \"TI\"], \(i\)]\)}, where \!\(\*SubscriptBox[
+StyleBox[\"d\", \"TI\"], \(i\)]\) are irreducible denominators and \!\(\*SubscriptBox[
+StyleBox[\"r\", \"TI\"], \(i\)]\) are their Poincare ranks. The last entry is special: {\!\(\*SuperscriptBox[
+StyleBox[\"x\", \"TI\"], \(-1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"r\", \"TI\"], \(\[Infinity]\)]\)}, where \!\(\*SubscriptBox[
+StyleBox[\"r\", \"TI\"], \(\[Infinity]\)]\) is the Poincare rank at infinity.";
+
+
+DenominatorsInfo[m_,x_]:=Module[{dens=Denominators[m,x]},Append[{#,-1-LeadingQModOrder[m,#,x]}&/@dens,{1/x,PoincareRank[m,{x,\[Infinity]}]}]]
+
+
+DenominatorsInfo[ds_Association,x_Symbol]:=DenominatorsInfo[ds[x],x]
+DenominatorsInfo[ds_?DSystemQ,x_Symbol]:=DenominatorsInfo[ds[x],x]
 
 
 FactorPlus::usage="FactorPlus[expr] factors expr iff it has head \"Plus\"";
