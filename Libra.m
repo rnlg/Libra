@@ -90,7 +90,7 @@ HistoryBurn;
 Notations;AddNotation;ModNotation;RuleToNotation;NotationToRule
 
 
-EntangledBlocksIndices;DependentRowIndices;DependentColumnIndices;DiagonalBlocksIndices;
+EntangledBlocksIndices;DependentRowIndices;DependentColumnIndices;OffDiagonalBlocksIndices;DiagonalBlocksIndices;
 
 
 DeleteDependentRows;
@@ -216,7 +216,7 @@ History::nothing="History change not required.";
 HistoryAppend::usage="HistoryAppend[ds,{M,{func,arg1,\[Ellipsis]},extra1\[Rule]\[Ellipsis],\[Ellipsis]}] adds the most recent entry to the history.";
 
 
-Options[HistoryAppend]={HistoryChop->False};
+Options[HistoryAppend]={HistoryChop->False,Print->True};
 
 
 HistoryAppend::chop="Did not change history to avoid overwriting forward entries. Use HistoryChop[`1`] first or execute SetOptions[HistoryAppend,HistoryChop\[Rule]False]."
@@ -225,26 +225,32 @@ HistoryAppend::chop="Did not change history to avoid overwriting forward entries
 HistoryAppend[ds_Symbol?DSystemQ,event:{_Association,_List,___},OptionsPattern[]]:=If[
 TrueQ[OptionValue[HistoryChop]||Length[History[ds]]<=HistoryIndex[ds]],
 Unprotect[ds];History[ds]^=Append[Take[History[ds],HistoryIndex[ds]],event];
-HistoryIndex[ds]^=HistoryIndex[ds]+1;Protect[ds];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]]<>".",Small]],
+HistoryIndex[ds]^=HistoryIndex[ds]+1;Protect[ds];If[OptionValue[Print],Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]]<>".",Small]]],
 Message[HistoryAppend::chop,ds]];
 
 
 HistoryAddExtra::usage="HistoryAddExtra[ds_Symbol,extra1\[Rule]\[Ellipsis],\[Ellipsis]] adds some optional information to the current history event.";
 
 
-HistoryAddExtra[ds_Symbol?DSystemQ,rules__Rule]:=(
+Options[HistoryAddExtra]={Print->True};
+
+
+HistoryAddExtra[ds_Symbol?DSystemQ,rules__Rule,OptionsPattern[]]:=(
 Unprotect[ds];History[ds]^=ReplacePart[History[ds],HistoryIndex[ds]->Join[DeleteCases[History[ds][[HistoryIndex[ds]]],Alternatives@@First/@{rules}->_],{rules}]];
 Protect[ds];
-Print[Style["Added extra(s) "<>StringRiffle[ToString/@First/@{rules},","]<>" to current history entry.",Small]])
+If[OptionValue[Print],Print[Style["Added extra(s) "<>StringRiffle[ToString/@First/@{rules},","]<>" to current history entry.",Small]]];)
 
 
 HistoryDeleteExtra::usage="HistoryDeleteExtra[ds_Symbol,extra1,\[Ellipsis]] removes optional information from the current history event.";
 
 
-HistoryDeleteExtra[ds_Symbol?DSystemQ,extras___]:=(
+Options[HistoryDeleteExtra]={Print->True};
+
+
+HistoryDeleteExtra[ds_Symbol?DSystemQ,extras___,OptionsPattern[]]:=(
 Unprotect[ds];History[ds]^=ReplacePart[History[ds],HistoryIndex[ds]->DeleteCases[History[ds][[HistoryIndex[ds]]],Alternatives@@extras->_]];
 Protect[ds];
-Print[Style["Deleted extra(s) "<>StringRiffle[ToString/@extras,","]<>" from current history entry.",Small]])
+If[OptionValue[Print],Print[Style["Deleted extra(s) "<>StringRiffle[ToString/@extras,","]<>" from current history entry.",Small]]])
 
 
 Undo[ds_?DSystemQ,n_Integer:1]:=If[HistoryIndex[ds]>n,
@@ -402,7 +408,7 @@ Notations[ds]^=Association[];
 (*will be used in arguments patterns*)l=Length/@Last/@defs;
 If[!(SameQ@@l),Message[NewDSystem::size]];
 Length[ds]^=First@l;
-HistoryAppend[ds,{Association[defs],{NewDSystem,ds,Association[defs]}}];
+HistoryAppend[ds,{Association[defs],{NewDSystem,ds,Association[defs]}},Print->OptionValue[Print]];
 (*ToExpression[#<>"$M:=History["<>#<>"][[HistoryIndex["<>#<>"],1]];Protect["<>#<>"$M]"]&[SymbolName[ds]]*),
 Message[NewDSystem::error];Abort[];
 ];
@@ -1424,17 +1430,17 @@ StyleBox[\"ds\", \"TI\"]\),\!\(\*
 StyleBox[\"t\", \"TI\",\nFontSize->12]\)] transforms the differential system.";
 
 
-Options[Transform]={Simplify->Factor};
+Options[Transform]={Simplify->Factor,Print->True};
 
 
 Transform::notinv="The two matrices are not reciprocal to each other. Aborting...";
 Transform::range="Something wrong with application range `1`. Aborting...";
 
 
-Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,OptionsPattern[]]:=Module[{ti=OInverse@t},
+Transform[m_?SquareMatrixQ,t_?SquareMatrixQ]:=Module[{ti=OInverse@t},
 transform[m,t,ti]
 ];
-Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False},OptionsPattern[]]:=If[checked||Factor[ti.t]===IdentityMatrix[Length@t],
+Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False}]:=If[checked||Factor[ti.t]===IdentityMatrix[Length@t],
 transform[m,t,ti],
 Message[Transform::notinv];Abort[]];
 
@@ -1451,8 +1457,8 @@ SetOptions[D,NonConstants->First/@notas];
 ]
 
 
-Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],notas:_Association|{___Rule}:{}]:=Transform[m,{t,OInverse@t,True},x,i,notas];
-Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False},x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],notas:_Association|{___Rule}:{}]:=Module[{mt},If[checked||ODot[ti,t]===IdentityMatrix[Length@t],
+Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All]]:=Transform[m,{t,OInverse@t,True},{x,notas},i];
+Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False},{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All]]:=Module[{mt},If[checked||ODot[ti,t]===IdentityMatrix[Length@t],
 mt=transformrange[m,t,ti,x,i,notas/.Association->List];
 mt,
 Message[Transform::notinv];Abort[]]
@@ -1478,9 +1484,9 @@ m
 ]
 
 
-Transform[ds_?DSystemQ,t_,i:{__Integer}|Span[_,_]:Span[1,All]]:=Module[{m=ds[[]]},
-Check[(m[#]=Transform[m[#],t,#,i,Notations[ds]])&/@Keys[m],Return[$Failed]];
-HistoryAppend[ds,{m,{Transform,ds,t,i}}];
+Transform[ds_?DSystemQ,t_,i:{__Integer}|Span[_,_]:Span[1,All],opts:OptionsPattern[]]:=Module[{m=ds[[]]},
+Check[(m[#]=Transform[m[#],t,{#,Notations[ds]},i])&/@Keys[m],Return[$Failed]];
+HistoryAppend[ds,{m,{Transform,ds,t,i}},Sequence@@FilterRules[{opts},Options[HistoryAppend]]];
 m
 ]
 
@@ -2053,6 +2059,68 @@ todo["BlockTriangularToFuchsian, option Simplify\[Rule]True seems to be broken"]
 
 
 todo["BlockTriangularToFuchsian, treat Notations."];
+
+
+FuchsifyBlock::usage="FuchsifyBlock[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\),{{\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(2\)]\),\[Ellipsis]},{\!\(\*SubscriptBox[
+StyleBox[\"j\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"j\", \"TI\"], \(2\)]\),\[Ellipsis]}}] is supposed to Fuchsify block \!\(\*
+StyleBox[\"m\", \"TI\"]\)\!\(\*
+StyleBox[\"[\", \"TI\"]\)\!\(\*
+StyleBox[\"[\", \"TI\"]\){\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(2\)]\),\[Ellipsis]},{\!\(\*SubscriptBox[
+StyleBox[\"j\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"j\", \"TI\"], \(2\)]\),\[Ellipsis]}]].";
+
+
+FuchsifyBlock::pr="Diagonal block `1` is not Fuchsian. Aborting...";
+FuchsifyBlock[m_,x_,{high_List,low_List},notas:{___Rule}:{}]:=
+Module[
+{all=Join[high,low],lhigh=Length@high,llow=Length@low,densPR,infPR,deg,vars,c,t,p,b},
+NewDSystem[b,x->m[[all,all]],Print->False];
+AddNotation[b,#]&/@notas;
+(*Check that diagonal blocks are Fuchsian*)
+densPR=DenominatorsInfo[b[[(-llow);;,(-llow);;]],x];
+If[MemberQ[Last/@densPR,_?Positive],Message[FuchsifyBlock::pr,low];Abort[]];
+densPR=DenominatorsInfo[b[[;;lhigh,;;lhigh]],x];
+If[MemberQ[Last/@densPR,_?Positive],Message[FuchsifyBlock::pr,high];Abort[]];
+(*/Check that diagonal blocks are Fuchsian*)
+(*Extracting Poincare ranks*)
+densPR=DenominatorsInfo[b[[;;lhigh,(-llow);;]],x];(*(*1/x is special: x=\[Infinity]*)
+{infPR}=Cases[densPR,{1/x,r_}\[RuleDelayed]r];Print[infPR];
+densPR=DeleteCases[densPR,{1/x,_}];(*here they are only finite*)*)
+Function[{den,pr},
+Monitor[
+If[den=!=1/x,
+(*finite singularities*)
+deg=Exponent[den,x];
+vars=Array[c,{lhigh,llow,deg},{1,1,0}];
+Do[
+t=IdentityMatrix[lhigh+llow];
+t[[;;lhigh,(-llow);;]]=vars.x^Range[0,Exponent[den,x]-1]/den^p;
+t=t/.GaussSolve[Flatten[CoefficientList[QuolyMod[Factor[Transform[b[x],t,x]den^(p+1)],den,x],x]],Flatten[vars]];
+Transform[b,t,Print->False]
+,
+{p,pr,1,-1}],
+(*infinity*)
+vars=Array[c,{lhigh,llow},{1,1}];
+Do[
+t=IdentityMatrix[lhigh+llow];
+t[[;;lhigh,(-llow);;]]=vars*x^p;
+t=t/.GaussSolve[SeriesCoefficient[Transform[b[x],t,x],{x,\[Infinity],1-p}],Flatten[vars]];
+Transform[b,t,Print->False]
+,
+{p,pr,1,-1}]
+],
+Row[{den,":",p}]
+]
+]@@@densPR;
+t=HistoryConsolidate[b,HistoryAppend->False,Inverse->False]
+]
 
 
 BTSolve::usage="BTSolve[{A,B,C}] returns matrix D which is the solution of the equation D+AD-DC+B=0.";
