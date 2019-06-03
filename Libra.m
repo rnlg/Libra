@@ -150,7 +150,7 @@ FactorOut;FactorDependence;
 GaussSolve;
 
 
-InvertMod;QuolyMod;ExtendedQuolyMod;LeadingQModTerm;LeadingQModOrder;
+InvertMod;QuolyMod;ExtendedQuolyMod;LeadingQModTerm=PolyLeadingTerm;LeadingQModOrder=PolyLeadingOrder;
 OQuolyMod;
 
 
@@ -158,6 +158,9 @@ DenominatorOrder;
 
 
 BlockTriangularToFuchsian;
+
+
+FuchsifyBlock;
 
 
 ToOneDE;ToCompanionDS;
@@ -285,11 +288,11 @@ HistoryConsolidate::chop="Did not change history to avoid overwriting forward en
 
 Options[HistoryConsolidate]={HistoryChop->False,HistoryAppend->True,
 Inverse->True(*whether to calculate inverse transformation matrix*),
-UseFermat->Automatic
+UseFermat->True
 };
 
 
-HistoryConsolidate[ds_?DSystemQ,OptionsPattern[]]:=Module[{T=IdentityMatrix[Length@ds],Ti=IdentityMatrix[Length@ds],i,ii,t,start,end,val,old,new,subs,inv=OptionValue[Inverse]},
+HistoryConsolidate[ds_?DSystemQ,OptionsPattern[]]:=Module[{T=IdentityMatrix[Length@ds],Ti=IdentityMatrix[Length@ds],i,ii,t,start,end,val,old,new,subs,inv=OptionValue[Inverse],fermat=OptionValue[UseFermat]},
 (*First, calculate transformation. We move in history up to the first Undo[ds,All] or first entry*)
 (*starting index: either 1 or index of first full undo*)
 start=Position[Take[History[ds],HistoryIndex[ds]],{_,{Undo,ds,_}|{NewDSystem,ds,__},___},{1}][[-1,1]];
@@ -298,20 +301,16 @@ old=new=subs=Keys[val];
 end=HistoryIndex[ds];
 Monitor[Do[
 Replace[History[ds][[i,2]],{
-{Transform,ds,tt_?SquareMatrixQ}:>(T=ODot[T,tt];If[inv,Ti=ODot[OInverse[tt],Ti]]),
+{Transform,ds,tt_?SquareMatrixQ}:>(T=ODot[T,tt,UseFermat->fermat];If[inv,Ti=ODot[OInverse[tt,UseFermat->fermat],Ti,UseFermat->fermat]]),
 {Transform,ds,tt_?SquareMatrixQ,ii_}:>((*Modified 14.05.2019*)(*(*Deleted 14.05.2019*)t=IdentityMatrix[Length@ds];t[[ii,ii]]=tt;T=ODot[T,t];If[inv,Ti=ODot[OInverse[t],Ti]](*/Deleted 14.05.2019*)*)
-(*Added 14.05.2019*)T[[All,ii]]=ODot[T[[All,ii]],tt];If[inv,Ti[[ii]]=ODot[OInverse[tt],Ti[[ii]]]](*/Added 14.05.2019*)
+(*Added 14.05.2019*)T[[All,ii]]=ODot[T[[All,ii]],tt,UseFermat->fermat];If[inv,Ti[[ii]]=ODot[OInverse[tt,UseFermat->fermat],Ti[[ii]]],UseFermat->fermat](*/Added 14.05.2019*)
 (*/Modified 14.05.2019*)),
-{Transform,ds,tt:{_?SquareMatrixQ,_?SquareMatrixQ}}:>(T=ODot[T,tt[[1]]];If[inv,Ti=ODot[tt[[2]],Ti]]),
+{Transform,ds,tt:{_?SquareMatrixQ,_?SquareMatrixQ}}:>(T=ODot[T,tt[[1]],UseFermat->fermat];If[inv,Ti=ODot[tt[[2]],Ti,UseFermat->fermat]]),
 {Transform,ds,tt:{_?SquareMatrixQ,_?SquareMatrixQ},ii_}:>(
-(*Modified 14.05.2019*)(*(*Deleted 14.05.2019*)t=IdentityMatrix[Length@ds];t[[ii,ii]]=tt[[1]];T=ODot[T,t];
+(*Modified 14.05.2019*)
+T[[All,ii]]=ODot[T[[All,ii]],tt[[1]],UseFermat->fermat];
 If[inv,
-t=IdentityMatrix[Length@ds];t[[ii,ii]]=tt[[2]];
-Ti=ODot[t,Ti]](*/Deleted 14.05.2019*)*)
-(*Added 14.05.2019*)
-T[[All,ii]]=ODot[T[[All,ii]],tt[[1]]];
-If[inv,
-Ti[[ii]]=ODot[tt[[2]],Ti[[ii]]]](*/Added 14.05.2019*)
+Ti[[ii]]=ODot[tt[[2]],Ti[[ii]],UseFermat->fermat]]
 (*/Modified 14.05.2019*)),
 {ChangeVar,ds,tt_,nw_,___}:>(T=Factor[T/.tt];If[inv,Ti=Factor[Ti/.tt]];subs=Factor[subs/.tt];new=nw),
 {Factor,ds}:>(T=Factor[T];If[inv,Ti=Factor[Ti]]),
@@ -328,8 +327,8 @@ If[TrueQ@OptionValue[HistoryChop]||Length@History[ds]<=HistoryIndex[ds],
 HistoryAppend[ds,{val,{Undo,ds,end-start}}];
 ChangeVar[ds,Thread[old->subs],new];
 If[inv,
-Transform[ds,{T,Ti}],
-Transform[ds,T]
+Transform[ds,{T,Ti},UseFermat->fermat],
+Transform[ds,T,UseFermat->fermat]
 ],
 Message[HistoryConsolidate::chop,ds]
 ]];
@@ -423,7 +422,8 @@ ds::usage="Differential system for "<>ToString@Length@ds<>" functions of "<>Stri
 
 
 redefineOperations[ds_Symbol]:=Module[{t1,i,keys,l},
-(#[ds,opts___]^:=Function[ds$M,t1=#[ds$M,opts];If[t1===ds$M,Message[History::nothing],HistoryAppend[ds,{t1,{#,ds,opts}}];t1]][History[ds][[HistoryIndex[ds],1]]];)&/@{Factor,Simplify,FullSimplify,Apart,Together};
+(*(#[ds,opts___]^:=Function[ds$M,t1=#[ds$M,opts];If[t1===ds$M,Message[History::nothing],HistoryAppend[ds,{t1,{#,ds,opts}}];t1]][ds[]];)&/@{Factor,Simplify,FullSimplify,Apart,Together};*)
+Function[fun,fun[ds,opts___]^:=Map[fun[#,opts]&,ds,{2}];]/@{Factor,Simplify,FullSimplify,Apart,Together};
 Variables[ds]^:=Keys[History[ds][[HistoryIndex[ds],1]]];
 Protect/@Variables[ds];
 ds[x_]:=(History[ds][[HistoryIndex[ds],1]])[x];
@@ -693,22 +693,26 @@ Options[ExtendedQuolyMod]={Check->False};
 ExtendedQuolyMod::wrongargs="Something wrong with the arguments of ExtendedQuolyMod.";
 
 
-ExtendedQuolyMod[quoly_List,args__,opts:OptionsPattern[]]:=ExtendedQuolyMod[#,args.opts]&/@quoly;ExtendedQuolyMod[quoly_,poly_,x_,OptionsPattern[]]:=Module[{num,den,k=0},
-If[OptionValue[Check]&&!( RatFuncQ[quoly,x]&&PolyQ[poly,x]),Message[ExtendedQuolyMod::wrongargs];Abort[]];
+ExtendedQuolyMod[quoly_List,args__,opts:OptionsPattern[]]:=ExtendedQuolyMod[#,args.opts]&/@quoly;ExtendedQuolyMod[quoly_,poly_,x_,OptionsPattern[]]:=Module[{num,num1,den,den1,rmndr,k=0},
+If[FreeQ[poly,x],Return[\[Infinity]]];
+If[OptionValue[Check]&&!( RatFuncQ[quoly,x]&&PolyQ[poly,x]),Message[PolyLeadingOrder::wrongargs];Abort[]];
 {num,den}=Through[{Numerator,Denominator}@Together@quoly];
-If[PossibleZeroQ[num],Return[{\[Infinity],0}]];
-While[PolynomialQ[den,x](*\[LeftArrow]this is to account for reducible poly*)&&Not[FreeQ[PolynomialGCD[den,poly],x]],
-den=Cancel[den/poly];k--;
+If[PossibleZeroQ[num],Return[\[Infinity]]];
+While[True,
+{den1,rmndr}=PolynomialQuotientRemainder[den,poly,x];
+If[rmndr=!=0,Break[]];
+den=den1;k--;
 ];
-While[PolynomialQ[num,x](*\[LeftArrow]this is to account for reducible poly*)&&Not[FreeQ[PolynomialGCD[num,poly],x]],
-num=Cancel[num/poly];k++;
+While[True,
+{num1,rmndr}=PolynomialQuotientRemainder[num,poly,x];
+If[rmndr=!=0,Break[]];
+num=num1;k++;
 ];
-If[!PolynomialQ[num,x],num=Cancel[num*poly];k--];
 {k,QuolyMod[num/den,poly,x]}
 ]
 
 
-LeadingQModOrder::usage="LeadingQModOrder[\!\(\*
+PolyLeadingOrder::usage="PolyLeadingOrder[\!\(\*
 StyleBox[\"Q\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
@@ -742,20 +746,20 @@ StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\).";
 
 
-Options[LeadingQModOrder]={Check->False,Parallelize->False};
-LeadingQModOrder::wrongargs="Something wrong with the arguments of LeadingQModOrder.";
+Options[PolyLeadingOrder]={Check->False,Parallelize->False};
+PolyLeadingOrder::wrongargs="Something wrong with the arguments of PolyLeadingOrder.";
 
 
-LeadingQModOrder[quoly_List,args__,opts:OptionsPattern[]]:=If[OptionValue[Parallelize],
-DistributeDefinitions[LeadingQModOrder];
-Min[ParallelMap[LeadingQModOrder[#,args,opts]&,quoly,{ArrayDepth[quoly]}]],
-Min[Map[LeadingQModOrder[#,args,opts]&,quoly,{ArrayDepth[quoly]}]]
+PolyLeadingOrder[quoly_List,args__,opts:OptionsPattern[]]:=If[OptionValue[Parallelize],
+DistributeDefinitions[PolyLeadingOrder];
+Min[ParallelMap[PolyLeadingOrder[#,args,opts]&,quoly,{ArrayDepth[quoly]}]],
+Min[Map[PolyLeadingOrder[#,args,opts]&,quoly,{ArrayDepth[quoly]}]]
 ];
 
 
-LeadingQModOrder[quoly_,poly_,x_,OptionsPattern[]]:=Module[{num,den,rmndr,k=0},
+PolyLeadingOrder[quoly_,poly_,x_,OptionsPattern[]]:=Module[{num,den,rmndr,k=0},
 If[FreeQ[poly,x],Return[\[Infinity]]];
-If[OptionValue[Check]&&!( RatFuncQ[quoly,x]&&PolyQ[poly,x]),Message[LeadingQModOrder::wrongargs];Abort[]];
+If[OptionValue[Check]&&!( RatFuncQ[quoly,x]&&PolyQ[poly,x]),Message[PolyLeadingOrder::wrongargs];Abort[]];
 {num,den}=Through[{Numerator,Denominator}@Together@quoly];
 If[PossibleZeroQ[num],Return[\[Infinity]]];
 While[True,
@@ -768,20 +772,14 @@ While[True,
 If[rmndr=!=0,Break[]];
 k++;
 ];
-(*While[PolynomialQ[den,x](*\[LeftArrow]this is to account for reducible poly*)&&Not[FreeQ[PolynomialGCD[den,poly],x]],den=Cancel[den/poly];k--;
-];
-While[PolynomialQ[num,x](*\[LeftArrow]this is to account for reducible poly*)&&Not[FreeQ[PolynomialGCD[num,poly],x]],
-num=Cancel[num/poly];k++;
-];
-If[!PolynomialQ[num,x],k--];*)
 k
 ]
 
 
-todo["Redefine LeadingQModTerm for matrices."];
+todo["Redefine PolyLeadingTerm for matrices."];
 
 
-LeadingQModTerm::usage="LeadingQModTerm[\!\(\*
+PolyLeadingTerm::usage="PolyLeadingTerm[\!\(\*
 StyleBox[\"Q\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
@@ -839,97 +837,17 @@ StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\).";
 
 
-Options[LeadingQModTerm]={Check->False};
-LeadingQModTerm::wrongargs="Something wrong with the arguments of LeadingQModTerm.";
+Options[PolyLeadingTerm]={Check->False};
+PolyLeadingTerm::wrongargs="Something wrong with the arguments of PolyLeadingTerm.";
 
 
-LeadingQModTerm[quoly_List,args__,opts:OptionsPattern[]]:=LeadingQModTerm[#,args.opts]&/@quoly;
+PolyLeadingTerm[quoly_List,args__,opts:OptionsPattern[]]:=PolyLeadingTerm[#,args.opts]&/@quoly;
 
 
-LeadingQModTerm[quoly_,poly_,x_,OptionsPattern[]]:=Module[{num,den,k},
-If[OptionValue[Check]&&!( RatFuncQ[quoly,x]&&PolyQ[poly,x]),Message[LeadingQModTerm::wrongargs];Abort[]];
-k=LeadingQModOrder[quoly,poly,x,Check->False];
+PolyLeadingTerm[quoly_,poly_,x_,OptionsPattern[]]:=Module[{num,den,k},
+If[OptionValue[Check]&&!( RatFuncQ[quoly,x]&&PolyQ[poly,x]),Message[PolyLeadingTerm::wrongargs];Abort[]];
+k=PolyLeadingOrder[quoly,poly,x,Check->False];
 poly^k*QuolyMod[quoly/poly^k,poly,x]
-]
-
-
-todo["Redefine LeadingQModTerm for matrices."];
-
-
-LeadingQModTerm::usage="LeadingQModTerm[\!\(\*
-StyleBox[\"Q\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\),\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\),\!\(\*
-StyleBox[\"x\", \"TI\"]\)] gives the result of the form \!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*SuperscriptBox[
-StyleBox[\")\", \"TI\"], \(k\)]\)(\!\(\*
-StyleBox[\"R\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\), where \!\(\*
-StyleBox[\"k\", \"TI\"]\) is the \"leading order\" and \!\(\*
-StyleBox[\"R\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\) is the \"remainder\", such that \!\(\*
-StyleBox[\"Q\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\)\!\(\*
-StyleBox[\"=\", \"TI\"]\)\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*SuperscriptBox[
-StyleBox[\")\", \"TI\"], \(k\)]\)(\!\(\*
-StyleBox[\"R\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\)\!\(\*
-StyleBox[\"+\", \"TI\"]\)\!\(\*
-StyleBox[\" \", \"TI\"]\)\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\)\!\(\*
-StyleBox[\"\[CenterDot]\", \"TI\"]\)\!\(\*
-StyleBox[\"S\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\), where \!\(\*
-StyleBox[\"S\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\) is a rational function with denominator being mutually simple with \!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\).";
-
-
-Options[LeadingQModTerm]={Check->False};
-LeadingQModTerm::wrongargs="Something wrong with the arguments of LeadingQModTerm.";
-
-
-LeadingQModTerm[quoly_List,args__,opts:OptionsPattern[]]:=LeadingQModTerm[#,args.opts]&/@quoly;LeadingQModTerm[quoly_,poly_,x_,OptionsPattern[]]:=Module[{num,den,k=0},
-If[OptionValue[Check]&&!( RatFuncQ[quoly,x]&&PolyQ[poly,x]),Message[LeadingQModTerm::wrongargs];Abort[]];
-{num,den}=Through[{Numerator,Denominator}@Together@quoly];
-If[PossibleZeroQ[num],Return[{\[Infinity],0}]];
-While[PolynomialQ[den,x](*\[LeftArrow]this is to account for reducible poly*)&&Not[FreeQ[PolynomialGCD[den,poly],x]],
-den=Cancel[den/poly];k--;
-];
-While[PolynomialQ[num,x](*\[LeftArrow]this is to account for reducible poly*)&&Not[FreeQ[PolynomialGCD[num,poly],x]],
-num=Cancel[num/poly];k++;
-];
-If[!PolynomialQ[num,x],num=Cancel[num*poly];k--];
-poly^k*QuolyMod[num/den,poly,x]
 ]
 
 
@@ -1115,13 +1033,13 @@ $LibraUseFermat/:Set[$LibraUseFermat,val_]:=If[(val===False)||(val===True&&Membe
 OQuolyMod::usage="OQuolyMod[quoly,poly,x] gives the \"remainder\" of the rational function quoly when divided by poly. First capital 'O' stands for 'optimized'.";
 
 
-todo["Remove obsolete definitionfor OQuolyMod[quoly_,rule:_Rule|_RuleDelayed]"];
+Options[OQuolyMod]={UseFermat->True};
 
 
-OQuolyMod[quoly_,rule:_Rule|_RuleDelayed]:=OQuolyMod[quoly,rule[[2]],rule[[1]]]
+done["Remove obsolete definitionfor OQuolyMod[quoly_,rule:_Rule|_RuleDelayed]"];
 
 
-OQuolyMod[quoly_,poly_,x_Symbol]:=If[$LibraUseFermat,
+OQuolyMod[quoly_,poly_,x_Symbol,OptionsPattern[]]:=If[$LibraUseFermat&&OptionValue[UseFermat],
 Replace[CheckAbort[FQuolyMod[quoly,poly,x],$Failed],$Failed:>(Print["OQuolyMod: resorting to Mathematica\[Ellipsis]"];QuolyMod[quoly,poly,x])],
 QuolyMod[quoly,poly,x]]
 
@@ -1135,7 +1053,10 @@ todo["Make better version of QuolyMod and especially FQuolyMod to deal with seve
 ODot::usage="ODot[m1,m2,...] is an optimized dot product."
 
 
-ODot[exs__]:=If[$LibraUseFermat,
+Options[ODot]={UseFermat->True};
+
+
+ODot[exs__,OptionsPattern[]]:=If[$LibraUseFermat&&OptionValue[UseFermat],
 Replace[CheckAbort[FDot[exs],$Failed],$Failed:>(Print["ODot: resorting to Mathematica\[Ellipsis]"];Together@Dot[exs])],
 Together@Dot[exs]];
 
@@ -1146,16 +1067,16 @@ FDot[exs__]:=Monitor[Fermatica`FDot[exs],Style["Executing Fermatica`FDot...",Tin
 OInverse::usage="OInverse[m] is an optimized version of Inverse[m] for block-triangular matrices.";
 
 
-Options[OInverse]={Print->False};
+Options[OInverse]={Print->False,UseFermat->True};
 
 
-OInverse[m_,opts:OptionsPattern[]]:=Module[{s=TClosure[m],diag,dep,mi=IdentityMatrix[Length@m],stat=""},
+OInverse[m_,OptionsPattern[]]:=Module[{s=TClosure[m],diag,dep,mi=IdentityMatrix[Length@m],stat=""},
 (*invert diagonal*)
 If[TrueQ@OptionValue[Print],Monitor,#&][
 stat="Finding diagonal blocks\[Ellipsis]";
 diag=EntangledBlocksIndices[s,True];
 (stat="Inverting diagonal elements with indices "<>ToString[#];
-mi[[#,#]]=If[$LibraUseFermat,
+mi[[#,#]]=If[$LibraUseFermat&&OptionValue[UseFermat],
 Replace[CheckAbort[FInverse[#],$Failed],$Failed:>(Print["Inverse: resorting to Mathematica\[Ellipsis]"];Together[Inverse[#]])],
 Together[Inverse[#]]]&@m[[#,#]])&/@diag;
 (dep=Complement[DependentRowIndices[s,#,True],#];stat="Inverting off-diagonal elements "<>ToString[dep]<>" on rows "<>ToString[#];mi[[#,dep]]=-ODot[mi[[#,#]],ODot[m[[#,dep]],mi[[dep,dep]]]])&/@diag;
@@ -1239,6 +1160,78 @@ lorder[expr_,{x_Symbol,x0_}]:=Plus@@Cases[FactorList[expr/.x->x+x0],{x^a_.,n_}:>
 lorder[expr_,{x_Symbol,\[Infinity]}]:=Plus@@Cases[FactorList[expr/.x->1/x],{x^a_.,n_}:>a n];
 (*lorder[expr_,{x_Symbol,x0_}]:=Series[expr,{x,x0,-20}][[4]];*)
 lorder[expr_SeriesData,{x_Symbol,x0_}]/;MatchQ[Take[List@@expr,2],{x,x0}]:=expr[[4]];
+
+
+PolySeriesRules::usage="PolySeriesRules[\!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),{\!\(\*
+StyleBox[\"x\", \"TI\"]\),\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"n\", \"TI\"]\)}] gives a list of the form {\!\(\*
+StyleBox[\"k\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Rule]\", \"TI\"]\)\!\(\*SubscriptBox[
+StyleBox[\"r\", \"TI\"], 
+StyleBox[\"k\", \"TI\"]]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"k\", \"TI\"]\)\!\(\*
+StyleBox[\"+\", \"TI\"]\)\!\(\*
+StyleBox[\"1\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Rule]\", \"TI\"]\)\!\(\*SubscriptBox[
+StyleBox[\"r\", \"TI\"], 
+StyleBox[
+RowBox[{\"k\", \"+\", \"1\"}], \"TI\"]]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\[Ellipsis],\!\(\*
+StyleBox[\"n\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Rule]\", \"TI\"]\)\!\(\*SubscriptBox[
+StyleBox[\"r\", \"TI\"], 
+StyleBox[\"n\", \"TI\"]]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)}, such that each \!\(\*SubscriptBox[
+StyleBox[\"r\", \"TI\"], 
+StyleBox[\"i\", \"TI\"]]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) is a polynomial with deg(\!\(\*SubscriptBox[
+StyleBox[\"r\", \"TI\"], 
+StyleBox[\"i\", \"TI\"]]\))<deg(\!\(\*
+StyleBox[\"P\", \"TI\"]\)) and PolyLeadingOrder[\!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"-\", \"TI\"]\)\[Sum]\!\(\*FractionBox[SubscriptBox[
+StyleBox[\"r\", \"TI\"], 
+StyleBox[\"k\", \"TI\"]], SuperscriptBox[
+StyleBox[\"P\", \"TI\"], 
+StyleBox[\"k\", \"TI\"]]]\),\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\)]>\!\(\*
+StyleBox[\"n\", \"TI\"]\)."
+
+
+PolySeriesRules[ex_,{x_,den_,o_}]:=Module[{lo,tmp,rem,res={}},
+If[!(RatFuncQ[ex,x]||PolyQ[den,x]),Return[$Failed]];
+lo=PolyLeadingOrder[ex,den,x];
+If[o<lo,Return[{o->0}]];
+tmp=Together[ex/den^lo];
+Do[
+rem=QuolyMod[tmp,den,x];
+AppendTo[res,rem];
+tmp=Together[(tmp-rem)/den];
+If[tmp===0,res=PadRight[res,o-lo+1];Break[]]
+,{i,lo,o}];
+Thread[(lo-1+Range[Length@res])->(res)]
+]
 
 
 SeriesSolutionData::usage="SeriesSolutionData[M,{x,x0,n}] constructs data for generalized power series solution of the system \[PartialD]U=M\[InvisibleComma]U.\nGeneralized form: SeriesSolutionData[M,{x,y(x),n}].\n    \[FilledSmallCircle] M should be rational.\n    \[FilledSmallCircle] M should be Fuchsian at x=x0.\n    \[FilledSmallCircle] Residue A at x=x0 should be free of resonances.\n    \[FilledSmallCircle] SeriesSolutionData returns data U with the asymptotics (x-x0)^A.\nReturned data has the form of a list with each element having the form {\[Lambda],\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\),s,{\!\(\*SubscriptBox[\(T\), \(1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]T\), \(s\)]\)}&,C[\[Lambda],0..\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\)]}.";
@@ -1430,62 +1423,56 @@ StyleBox[\"ds\", \"TI\"]\),\!\(\*
 StyleBox[\"t\", \"TI\",\nFontSize->12]\)] transforms the differential system.";
 
 
-Options[Transform]={Simplify->Factor,Print->True};
+Options[Transform]={Simplify->Factor,Print->True,UseFermat->True};
 
 
 Transform::notinv="The two matrices are not reciprocal to each other. Aborting...";
 Transform::range="Something wrong with application range `1`. Aborting...";
 
 
-Transform[m_?SquareMatrixQ,t_?SquareMatrixQ]:=Module[{ti=OInverse@t},
-transform[m,t,ti]
+Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,opts:OptionsPattern[]]:=Module[{ti=OInverse@t},
+transform[m,t,ti,OptionValue[UseFermat]] 
 ];
 Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False}]:=If[checked||Factor[ti.t]===IdentityMatrix[Length@t],
-transform[m,t,ti],
-Message[Transform::notinv];Abort[]];
+transform[m,t,ti,OptionValue[UseFermat]],
+Message[Transform::notinv];Abort[]]; 
 
 
 
-transform[m_,t_,ti_]:=ODot[ti,ODot[m,t]];
-transform[m_,t_,ti_,x_]:=ODot[ti,ODot[m,t]-D[t,x]];
-transform[m_,t_,ti_,x_,{}]:=ODot[ti,ODot[m,t]-D[t,x]];
+transform[m_,t_,ti_,fermat:True|False]:=ODot[ti,ODot[m,t,UseFermat->fermat],UseFermat->fermat];
+transform[m_,t_,ti_,x_,fermat:True|False]:=ODot[ti,ODot[m,t,UseFermat->fermat]-D[t,x],UseFermat->fermat];
+transform[m_,t_,ti_,x_,{},fermat:True|False]:=ODot[ti,ODot[m,t,UseFermat->fermat]-D[t,x],UseFermat->fermat];
 
 
-transform[m_,t_,ti_,x_,notas:{__Rule}]:=Internal`InheritedBlock[{D},
+transform[m_,t_,ti_,x_,notas:{__Rule},fermat:True|False]:=Internal`InheritedBlock[{D},
 SetOptions[D,NonConstants->First/@notas];
-(*Modified 18.05.2019*)Fold[ModNotation,ODot[ti,ODot[m,t]-(D[t,x]/.First[Solve[0==D[Last/@notas,x],D[First/@notas,x]]])],notas](*/Modified 18.05.2019*)
+(*Modified 18.05.2019*)Fold[ModNotation[#1,#2,UseFermat->fermat]&,ODot[ti,ODot[m,t,UseFermat->fermat]-(D[t,x]/.First[Solve[0==D[Last/@notas,x],D[First/@notas,x]]]),UseFermat->fermat],notas](*/Modified 18.05.2019*)
 ]
 
 
-Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All]]:=Transform[m,{t,OInverse@t,True},{x,notas},i];
-Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False},{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All]]:=Module[{mt},If[checked||ODot[ti,t]===IdentityMatrix[Length@t],
-mt=transformrange[m,t,ti,x,i,notas/.Association->List];
+Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],opts:OptionsPattern[]]:=Transform[m,{t,OInverse@t,True},{x,notas},i,opts];
+Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False},{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],opts:OptionsPattern[]]:=Module[{mt},If[checked||ODot[ti,t]===IdentityMatrix[Length@t],
+mt=transformrange[m,t,ti,x,i,notas/.Association->List,OptionValue[UseFermat]];
 mt,
 Message[Transform::notinv];Abort[]]
 ];
 
 
-transformrange[m_,t_,ti_,x_,Span[1,All],notas:{___Rule}:{}]:=transform[m,t,ti,x,notas];
-transformrange[m_,t_,ti_,x_,i_,notas:{___Rule}:{}]:=Module[{mt=m,jj,ii,l=Length@m},
+transformrange[m_,t_,ti_,x_,Span[1,All],notas:{___Rule}:{},fermat:True|False]:=transform[m,t,ti,x,notas,fermat];
+transformrange[m_,t_,ti_,x_,i_,notas:{___Rule}:{},fermat:True|False]:=Module[{mt=m,jj,ii,l=Length@m},
 ii=Replace[i,{Span[a_Integer,b_Integer]:>Range[Mod[a+l+1,l+1],Mod[b+l+1,l+1]],Span[a_Integer,All]:>Range[Mod[a+l+1,l+1],Length@m]}];
 If[Not[MatchQ[ii,{(_Integer?(1<=#<= l&))..}]],Message[Transform::range,i];Abort[]];
-mt[[ii,ii]]=transform[m[[ii,ii]],t,ti,x,notas];
+mt[[ii,ii]]=transform[m[[ii,ii]],t,ti,x,notas,fermat];
 jj=Complement[DependentColumnIndices[m,ii],ii];
-If[jj=!={},mt[[jj,ii]]=(*Modified 18.05.2019*)Fold[ModNotation,ODot[mt[[jj,ii]],t],notas/.Association->List](*/Modified 18.05.2019*)];
+If[jj=!={},mt[[jj,ii]]=(*Modified 18.05.2019*)Fold[ModNotation[#,#2,UseFermat->fermat]&,ODot[mt[[jj,ii]],t,UseFermat->fermat],notas/.Association->List](*/Modified 18.05.2019*)];
 jj=Complement[DependentRowIndices[m,ii],ii];
-If[jj=!={},mt[[ii,jj]]=(*Modified 18.05.2019*)Fold[ModNotation,ODot[ti,mt[[ii,jj]]],notas/.Association->List](*/Modified 18.05.2019*)];
+If[jj=!={},mt[[ii,jj]]=(*Modified 18.05.2019*)Fold[ModNotation[#,#2,UseFermat->fermat]&,ODot[ti,mt[[ii,jj]],UseFermat->fermat],notas/.Association->List](*/Modified 18.05.2019*)];
 mt
 ];
 
 
-Transform[as_Association,t_,ii:{__Integer}|Span[_,_]:Span[1,All],notas:_Association|{___Rule}:{}]:=Module[{m=as},
-(m[#]=Transform[m[#],t,#,ii,notas])&/@Keys[m];
-m
-]
-
-
 Transform[ds_?DSystemQ,t_,i:{__Integer}|Span[_,_]:Span[1,All],opts:OptionsPattern[]]:=Module[{m=ds[[]]},
-Check[(m[#]=Transform[m[#],t,{#,Notations[ds]},i])&/@Keys[m],Return[$Failed]];
+Check[(m[#]=Transform[m[#],t,{#,Notations[ds]},i,UseFermat->OptionValue[UseFermat]])&/@Keys[m],Return[$Failed]];
 HistoryAppend[ds,{m,{Transform,ds,t,i}},Sequence@@FilterRules[{opts},Options[HistoryAppend]]];
 m
 ]
@@ -1543,10 +1530,13 @@ StyleBox[\")\", \"TI\"]\),\!\(\*
 StyleBox[\"y\", \"TI\"]\)]. Should be good for reducing dependence on notations.";
 
 
-ModNotation[quoly_,rule:_Rule|_RuleDelayed]:=OQuolyMod[quoly,rule[[2]],rule[[1]]]
+Options[ModNotation]={UseFermat->True}
 
 
-todo["remove _RuleDelayed in ModNotation[quoly_,rule:_Rule|_RuleDelayed]"]
+ModNotation[quoly_,rule:_Rule|_RuleDelayed,OptionsPattern[]]:=OQuolyMod[quoly,rule[[2]],rule[[1]],UseFermat->OptionValue[UseFermat]]
+
+
+todo["Think of removing _RuleDelayed in ModNotation[quoly_,rule:_Rule|_RuleDelayed]"]
 
 
 RuleToNotation::usage="RuleToNotation[\!\(\*
@@ -2077,12 +2067,29 @@ StyleBox[\"j\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
 StyleBox[\"j\", \"TI\"], \(2\)]\),\[Ellipsis]}]].";
 
 
+todo["FuchsifyBlock \[LongDash] one can do even faster by using BTSolve. No need to apply  transformation beforehand."];
+
+
+FuchsifyBlock[ds_?DSystemQ,x_Symbol,{high_List,low_List}]:=Module[{m,all=Join[high,low],ll=Length@low,lh=Length@high,y,x2y,t,notas=Notations[ds]/.Association->List},
+m=ds[x][[all,all]];
+notas=Select[notas,Not[FreeQ[m,First[#]]]&];
+If[Length@notas>1,Message[FuchsifyBlock::notas];Abort[]];
+If[Length@notas==0,
+FuchsifyBlock[m,x,{Range[lh],Range[lh+1,lh+ll]}],
+PrintTemporary["Found one notation. Changing variable..."];
+{y,x2y}={#,NotationToRule[#1->#2,x]}&@@(notas=First[notas]);
+ModNotation[FuchsifyBlock[(m/.x2y)*D[x2y[[2]],y],y,{Range[lh],Range[lh+1,lh+ll]}],notas]
+]
+]
+
+
 FuchsifyBlock::pr="Diagonal block `1` is not Fuchsian. Aborting...";
-FuchsifyBlock[m_,x_,{high_List,low_List},notas:{___Rule}:{}]:=
+FuchsifyBlock[m_?MatrixQ,{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,{high_List,low_List}]:=
 Module[
-{all=Join[high,low],lhigh=Length@high,llow=Length@low,densPR,infPR,deg,vars,c,t,p,b},
+{all=Join[high,low],lhigh=Length@high,llow=Length@low,densPR,infPR,deg,vars,c,cm,t,p,b,Ah,Al,Bhl,part1,part2},
 NewDSystem[b,x->m[[all,all]],Print->False];
-AddNotation[b,#]&/@notas;
+If[Not[{notas}==={}],Abort[]];(*Can not treat notations yet*)
+AddNotation[b,#]&/@Flatten[{notas}/.Association->List];
 (*Check that diagonal blocks are Fuchsian*)
 densPR=DenominatorsInfo[b[[(-llow);;,(-llow);;]],x];
 If[MemberQ[Last/@densPR,_?Positive],Message[FuchsifyBlock::pr,low];Abort[]];
@@ -2099,19 +2106,27 @@ If[den=!=1/x,
 (*finite singularities*)
 deg=Exponent[den,x];
 vars=Array[c,{lhigh,llow,deg},{1,1,0}];
-Do[
+(*Diagonal blocks*)
+Ah=QuolyMod[den*b[x][[;;lhigh,;;lhigh]],den,x];
+Al=QuolyMod[den*b[x][[(-llow);;,(-llow);;]],den,x];
 t=IdentityMatrix[lhigh+llow];
-t[[;;lhigh,(-llow);;]]=vars.x^Range[0,Exponent[den,x]-1]/den^p;
-t=t/.GaussSolve[Flatten[CoefficientList[QuolyMod[Factor[Transform[b[x],t,x]den^(p+1)],den,x],x]],Flatten[vars]];
+cm=vars.x^Range[0,Exponent[den,x]-1];
+part1=QuolyMod[Ah.cm-cm.Al,den,x];
+part2=QuolyMod[cm*D[den,x],den,x];
+Do[
+Bhl=QuolyMod[Factor[b[x][[;;lhigh,(-llow);;]]den^(p+1)],den,x];
+t[[;;lhigh,(-llow);;]]=cm/den^p/.GaussSolve[Flatten[CoefficientList[Bhl+part1+p*part2,x]],Flatten[vars]];
 Transform[b,t,Print->False]
 ,
 {p,pr,1,-1}],
 (*infinity*)
 vars=Array[c,{lhigh,llow},{1,1}];
-Do[
 t=IdentityMatrix[lhigh+llow];
-t[[;;lhigh,(-llow);;]]=vars*x^p;
-t=t/.GaussSolve[SeriesCoefficient[Transform[b[x],t,x],{x,\[Infinity],1-p}],Flatten[vars]];
+Ah=SeriesCoefficient[b[x][[;;lhigh,;;lhigh]],{x,\[Infinity],1}];
+Al=SeriesCoefficient[b[x][[(-llow);;,(-llow);;]],{x,\[Infinity],1}];
+Do[
+Bhl=SeriesCoefficient[b[x][[;;lhigh,(-llow);;]],{x,\[Infinity],1-p}];
+t[[;;lhigh,(-llow);;]]=vars*x^p/.GaussSolve[Bhl+Ah.vars-vars.Al-p*vars,Flatten[vars]];
 Transform[b,t,Print->False]
 ,
 {p,pr,1,-1}]
@@ -2247,7 +2262,7 @@ StyleBox[\"r\", \"TI\"], \(\[Infinity]\)]\)}, where \!\(\*SubscriptBox[
 StyleBox[\"r\", \"TI\"], \(\[Infinity]\)]\) is the Poincare rank at infinity.";
 
 
-DenominatorsInfo[m_,x_]:=Module[{dens=Denominators[m,x]},Append[{#,-1-LeadingQModOrder[m,#,x]}&/@dens,{1/x,PoincareRank[m,{x,\[Infinity]}]}]]
+DenominatorsInfo[m_,x_]:=Module[{dens=Denominators[m,x]},Append[{#,-1-PolyLeadingOrder[m,#,x]}&/@dens,{1/x,PoincareRank[m,{x,\[Infinity]}]}]]
 
 
 DenominatorsInfo[ds_Association,x_Symbol]:=DenominatorsInfo[ds[x],x]
