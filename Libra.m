@@ -90,7 +90,12 @@ HistoryBurn;
 Notations;AddNotation;ModNotation;RuleToNotation;NotationToRule
 
 
-EntangledBlocksIndices;DependentRowIndices;DependentColumnIndices;OffDiagonalBlocksIndices;DiagonalBlocksIndices;
+SubsystemsIndices;
+LargestSubsystemsIndices;
+EntangledBlocksIndices;
+DependentRowIndices;
+DependentColumnIndices;
+OffDiagonalBlocksIndices;DiagonalBlocksIndices;
 
 
 DeleteDependentRows;
@@ -198,6 +203,9 @@ todolist={};
 donelist={};
 todo[s_String]:=AppendTo[todolist,s];
 done[s_String]:=AppendTo[donelist,s];
+
+
+todo["OffDiagonalBlocksIndices[_?DSystemQ]"]
 
 
 History::usage="History[ds] is the central object. It is a list with the elements of the following form:
@@ -912,7 +920,7 @@ FuchsianQ::usage="FuchsianQ[\!\(\*
 StyleBox[\"m\", \"TI\"]\),\!\(\*
 StyleBox[\"x\", \"TI\"]\)]  gives True if \!\(\*
 StyleBox[\"m\", \"TI\"]\) has only simple poles in \!\(\*
-StyleBox[\"x\", \"TI\"]\).";FuchsianQ[m_,x_]/;RatFuncQ[m,x]:=MatchQ[PolesInfo[m,x],{{_,_?NonPositive}...}]
+StyleBox[\"x\", \"TI\"]\).";FuchsianQ[m_,x_]/;RatFuncQ[m,x]:=MatchQ[DenominatorsInfo[m,x],{{_,_?NonPositive}...}]
 FuchsianQ[_]=False;
 
 
@@ -955,6 +963,37 @@ tclosure[lc,1,Except[{0..}]]
 ]
 
 
+SubsystemsIndices::usage="SubsystemsIndices[\!\(\*
+StyleBox[\"m\", \"TI\"]\)] gives a list {{\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(2\)]\),\[Ellipsis]},{\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(k\)]\),\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(k + 1\)]\),\[Ellipsis]},\[Ellipsis]} with each element being the list of indices for the valid subsystem."
+
+
+SubsystemsIndices[m_?SquareMatrixQ,tc:(True|False):False]:=SortBy[DeleteDuplicates[Flatten[Position[#,1,{1}]]&/@If[tc,m,TClosure[m]]],{Last@#,Length@#}&]
+
+
+SubsystemsIndices[ds_?DSystemQ,tc:(False):False]:=SubsystemsIndices[TClosure[ds],True]
+
+
+LargestSubsystemsIndices::usage="LargestSubsystemsIndices[\!\(\*
+StyleBox[\"m\", \"TI\"]\)] gives a list {{\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(2\)]\),\[Ellipsis]},{\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(k\)]\),\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(k + 1\)]\),\[Ellipsis]},\[Ellipsis]} with each element being the list of indices for the valid largest subsystem."
+
+
+LargestSubsystemsIndices[m_?SquareMatrixQ,tc:(True|False):False]:=Module[{ss=Reverse@SortBy[SubsystemsIndices[m,tc],Length],left=Range[Length@m],left1,res={}},
+Do[If[left=!=(left1=Complement[left,ss[[i]]]),left=left1;PrependTo[res,ss[[i]]]],{i,Length@ss}];
+res
+]
+
+
+LargestSubsystemsIndices[ds_?DSystemQ,tc:(False):False]:=LargestSubsystemsIndices[TClosure[ds],True]
+
+
 EntangledBlocksIndices::usage="EntangledBlocksIndices[\!\(\*
 StyleBox[\"m\", \"TI\"]\)] gives a partitioned list {{\!\(\*SubscriptBox[
 StyleBox[\"i\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
@@ -968,11 +1007,12 @@ StyleBox[\"i\", \"TI\"], \(k + 1\)]\),\[Ellipsis]} of columns and rows of \!\(\*
 StyleBox[\"m\", \"TI\"]\) transforms it to lower block-triangular form. The partition indicates separate blocks. The order guarantees that dependent blocks appear earlier.";
 
 
-EntangledBlocksIndices[m_?SquareMatrixQ,tc:(True|False):False]:=Module[{ss},ss=SortBy[Union[Flatten[Position[#,1,{1}]]&/@If[tc,m,TClosure[m]]],{Last@#,Length@#}&];
+EntangledBlocksIndices[m_?SquareMatrixQ,tc:(True|False):False]:=Module[{ss},
+ss=SubsystemsIndices[m,tc];
 Table[Complement@@Reverse[Take[ss,i]],{i,Length@ss}]]
 
 
-EntangledBlocksIndices[ds_?DSystemQ,tc:(False):False]:=Module[{ss},ss=SortBy[Union[Flatten[Position[#,1,{1}]]&/@TClosure[ds]],{Last@#,Length@#}&];Table[Complement@@Reverse[Take[ss,i]],{i,Length@ss}]]
+EntangledBlocksIndices[ds_?DSystemQ,tc:(False):False]:=EntangledBlocksIndices[TClosure[ds],True]
 
 
 OffDiagonalBlocksIndices::usage="OffDiagonalBlocksIndices[\!\(\*
@@ -983,11 +1023,14 @@ StyleBox[\"j\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
 StyleBox[\"j\", \"TI\"], \(2\)]\),\[Ellipsis]}},\[Ellipsis]} such that each pair corresponds to the indices of the off-diagonal block. The order should be good for treating blocks with BlockTriangularToFuchsian.";
 
 
-OffDiagonalBlocksIndices[m_?SquareMatrixQ,tc:(True|False):False]:=Module[{ss,eb,hie=If[tc,m,TClosure[m]],f},
-ss=SortBy[DeleteDuplicates[Flatten[Position[#,1,{1}]]&/@hie],{Last@#,Length@#}&];
+OffDiagonalBlocksIndices[m_?SquareMatrixQ,tc:(True|False):False]:=Module[{ss,eb,f},
+ss=SubsystemsIndices[m,tc];
 eb=Table[Complement@@Reverse[Take[ss,i]],{i,Length@ss}];
 Flatten[Table[If[SubsetQ[ss[[i]],eb[[j]]],eb[[{i,j}]],Unevaluated[Sequence[]]],{i,Length@ss},{j,i-1,1,-1}],1]
 ]
+
+
+OffDiagonalBlocksIndices[ds_?DSystemQ,tc:(False):False]:=OffDiagonalBlocksIndices[TClosure[ds],True]
 
 
 DiagonalBlocksIndices::usage="DiagonalBlocksIndices[\!\(\*
@@ -1014,7 +1057,7 @@ StyleBox[\"index\", \"TI\"]\)] gives a list of indices of all dependent rows";
 DependentRowIndices[m_?SquareMatrixQ,rows_,tc:(True|False):False]:=Union@Flatten[Position[#,1,{1}]&/@If[tc,m,TClosure[m]][[Flatten[{rows}]]]]
 
 
-DependentRowIndices[ds_,rows_,tc:(False):False]:=Union@Flatten[Position[#,1,{1}]&/@TClosure[ds][[Flatten[{rows}]]]]
+DependentRowIndices[ds_?DSystemQ,rows_,tc:(False):False]:=DependentRowIndices[TClosure[ds],rows,True]
 
 
 DependentColumnIndices::usage="DependentColumnIndices[\!\(\*
@@ -1023,7 +1066,9 @@ StyleBox[\"index\", \"TI\"]\)] gives a list of indices of all dependent columns"
 
 
 DependentColumnIndices[m_?SquareMatrixQ,args__]:=DependentRowIndices[Transpose[m],args]
-DependentColumnIndices[ds_,args__]:=DependentRowIndices[Transpose[TClosure[m]],args]
+
+
+DependentColumnIndices[ds_?DSystemQ,rows_,tc:(False):False]:=DependentColumnIndices[TClosure[ds],rows,True]
 
 
 $LibraUseFermat::error="$LibraUseFermat can be set either to False or to True. The latter case requires Fermatica\` to be in the $ContextPath.";
@@ -2194,7 +2239,7 @@ StyleBox[\"m\", \"TI\"]\).";
 
 
 PolesPosition[m_List,x_Symbol]:=Module[{xf,t,mr},
-xf=x/.#&/@Union@Flatten[Solve[#==0,x]&/@Denominators[{m},_?(FreeQ[#,x]&)]];
+xf=x/.#&/@Union@Flatten[Solve[#==0,x]&/@Denominators[{m},x]];
 mr=Factor[m/t^2/.x->1/t];
 If[Quiet[Check[mr/.t->0;False,True,Power::infy]],Sort[Append[xf,\[Infinity]]],Sort[xf]]
 ]
