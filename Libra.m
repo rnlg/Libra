@@ -93,7 +93,7 @@ DependentColumnIndices;
 OffDiagonalBlocksIndices;DiagonalBlocksIndices;
 
 
-DeleteDependentRows;
+VectorBasis;
 
 
 UseFermat::usage="UseFermat is an option for many procedures which determines whether to use Fermat (Fermatica package required)";
@@ -152,6 +152,9 @@ GaussSolve;
 
 InvertMod;QuolyMod;ExtendedQuolyMod;PolyLeadingTerm;PolyLeadingOrder;
 OQuolyMod;
+
+
+PolyKer;PolyVectorBasis;
 PolyEigenvalues;
 PolyEigenspace;
 
@@ -482,170 +485,6 @@ DSystemQ::usage="DSystemQ[ds] returns True if ds is a differential system.";
 DSystemQ[_]=False;
 
 
-PolyEigenvalues::usage="PolyEigenvalues[\!\(\*
-StyleBox[\"m\", \"TI\"]\),\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\),\!\(\*
-StyleBox[\"x\", \"TI\"]\)] gives eigenvalues for the matrix with entries in the field \!\(\*
-StyleBox[\"Q\", \"TI\"]\)\!\(\*
-StyleBox[\"[\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\"]\", \"TI\"]\)\!\(\*
-StyleBox[\"/\", \"TI\"]\)\!\(\*
-StyleBox[\"P\", \"TI\"]\) where \!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\) is an irreducible polynomial. An eigenvalue \!\(\*
-StyleBox[\"\[Lambda]\", \"TI\"]\) is defined as a root of \!\(\*
-StyleBox[\"|\", \"TI\"]\)\!\(\*
-StyleBox[\"m\", \"TI\"]\)\!\(\*
-StyleBox[\"-\", \"TI\"]\)\!\(\*
-StyleBox[\"\[Lambda]P\", \"TI\"]\)\!\(\*
-StyleBox[\"'\", \"TI\"]\)\!\(\*
-StyleBox[\"|\", \"TI\"]\)\!\(\*
-StyleBox[\"=\", \"TI\"]\)\!\(\*
-StyleBox[\"0\", \"TI\"]\)(mod \!\(\*
-StyleBox[\"P\", \"TI\"]\)) provided that this root is independent of \!\(\*
-StyleBox[\"x\", \"TI\"]\).";
-PolyEigenvalues::error="Can not determine eigenvalues. Aborting...";
-PolyEigenvalues[m_,poly_,x_Symbol]/;PolyQ[poly,x]:=Module[
-{chpoly,a},
-chpoly=Factor@QuolyMod[CharacteristicPolynomial[m,a]/.a->a D[poly,x],poly,x];
-If[Not[FreeQ[chpoly,x]],Message[PolyEigenvalues::error];Abort[]];
-Replace[a,#]&/@Flatten[Replace[Factors@chpoly,{_?(FreeQ[#,a]&):>Sequence[],{p_,n_}:>ConstantArray[Solve[p==0,a],n]},{1}]]
-]
-
-
-PolyEigenspace::usage="PolyEigenvalues[\!\(\*
-StyleBox[\"m\", \"TI\"]\),\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\),\!\(\*
-StyleBox[\"x\", \"TI\"]\),\!\(\*
-StyleBox[\"\[Lambda]\", \"TI\"]\)] gives the eigenvectors {\!\(\*SubscriptBox[
-StyleBox[\"u\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
-StyleBox[\"u\", \"TI\"], \(2\)]\),\[Ellipsis]} corresponding to the eigenvalue \!\(\*
-StyleBox[\"\[Lambda]\", \"TI\"]\). Each \!\(\*
-StyleBox[\"u\", \"TI\"]\) is such that (\!\(\*
-StyleBox[\"m\", \"TI\"]\)\!\(\*
-StyleBox[\"-\", \"TI\"]\)\!\(\*
-StyleBox[\"\[Lambda]P\", \"TI\"]\)\!\(\*
-StyleBox[\"'\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\)\!\(\*
-StyleBox[\"u\", \"TI\"]\)\!\(\*
-StyleBox[\"=\", \"TI\"]\)\!\(\*
-StyleBox[\"0\", \"TI\"]\)(mod \!\(\*
-StyleBox[\"P\", \"TI\"]\))."
-
-
-PolyEigenspace[m_,poly_,x_,\[Lambda]_]:=Module[{k=Exponent[poly,x],n=Length[m],id,mr,xm,evs},
-mr=QuolyMod[m-\[Lambda] IdentityMatrix[n] D[poly,x],poly,x];
-mr=id[Coefficient[mr,x,#]]&/@Range[0,k-1];
-xm=CoefficientList[poly,x];(*action of x as a matrix from the right*)
-xm=Append[Rest[IdentityMatrix[k]],-Most[xm]/Last[xm]];
-evs=Factor[(x^Range[0,k-1]).Partition[#,n]]&/@NullSpace[ArrayFlatten[Transpose@NestList[Dot[#1,xm]&,mr,k-1]/.id->Identity]];
-]
-
-
-todo["PolyEigenspace: remove linearly dependent vectors."]
-todo["PolyEigenspace: allow for a list of \[Lambda]s."]
-
-
-DeleteDependentRows::usage="DeleteDependentRows[{v1,v2,...}] constructs basis in linear span of vectors v1,v2,\[Ellipsis]. Basically, it removes all dependent vectors from the given list.";
-
-
-DeleteDependentRows[vectors:{__List}]:=Module[{r=0,basis={},rrbasis={}},
-Scan[(If[MatrixRank[AppendTo[basis,#]]>r,r++,basis=Most[basis]])&,vectors];basis
-]
-
-
-JDecomposition::usage="JDecomposition[\!\(\*
-StyleBox[\"m\", \"TI\"]\)] yields the Jordan decomposition of a square matrix \!\(\*
-StyleBox[\"m\", \"TI\"]\). The result is a list {\!\(\*
-StyleBox[\"b\", \"TI\"]\),\!\(\*
-StyleBox[\"n\", \"TI\"]\)} where \!\(\*
-StyleBox[\"b\", \"TI\"]\) is a similarity matrix and \!\(\*
-StyleBox[\"n\", \"TI\"]\) is the Jordan canonical form of \!\(\*
-StyleBox[\"m\", \"TI\"]\). JDecomposition[\!\(\*
-StyleBox[\"m\", \"TI\"]\),\!\(\*
-StyleBox[\"l\", \"TI\"]\)] does the same, except that it puts \!\(\*
-StyleBox[\"l\", \"TI\"]\) above diagonal instead of 1.";
-
-
-JDecomposition[m_?SquareMatrixQ]:=Module[
-{s,d,a,b,p,jc,n=Length@m},
-Check[{s,a}=JordanDecomposition[m],Return[$Failed]];
-s=Factor@s;
-a=Simplify@Transform[m,s];
-If[!JFormQ[a],Return[$Failed]];
-(*Ugly hack to deal with Mathematica's bugs related to JordanDecomposition*)
-d=DiagonalMatrix[FoldList[If[#2===0,1,#1/#2]&,1,Diagonal[a,1]]];s=ODot[s,d];a=Simplify@Transform[a,d];
-{s,a}
-]
-
-
-JDecompositionData::usage="JDecompositionData[\!\(\*
-StyleBox[\"m\", \"TI\"]\)] gives data for the Jordan decomposition of a square matrix \!\(\*
-StyleBox[\"m\", \"TI\"]\). The result has a form {{\!\(\*
-StyleBox[\"\[Lambda]\", \"TI\"]\),\!\(\*
-StyleBox[\"ulist\", \"TI\"]\),\!\(\*
-StyleBox[\"vlist\", \"TI\"]\)},...} where each element corresponds to Jordan cell with the eigenvalue \!\(\*
-StyleBox[\"\[Lambda]\", \"TI\"]\) , \!\(\*
-StyleBox[\"ulist\", \"TI\"]\) being a Jordan chain vectors, starting from the eigenvectors, and \!\(\*
-StyleBox[\"vlist\", \"TI\"]\) being the same for transposed matrix. Note that dual bases are \!\(\*
-StyleBox[\"ulist\", \"TI\"]\) and Reverse[\!\(\*
-StyleBox[\"vlist\", \"TI\"]\)].";
-
-
-JDecompositionData[m_]:=Module[{
-n=Length@m,
-t,j,
-inds,
-sizes,
-evals,
-us,vs
-},
-{t,j}=JDecomposition[m];
-inds=Flatten[{0,Position[Diagonal[j,1],0,{1}],n}];
-sizes=Differences[inds];
-Assert[n===Plus@@sizes];
-evals=j[[#,#]]&/@Rest[inds];
-us=PartitionByLengths[Transpose[t],sizes];
-vs=Factor[Reverse/@PartitionByLengths[Inverse[t],sizes]];
-(*Outer[ODot,Flatten[vs,1],Flatten[us,1],1](*supposed to be identity matrix*)*)
-Transpose[{evals,us,vs}]
-]
-
-
-GaussSolve::usage="GaussSolve[eqs,vars] implements gauss method of the solution of linear equations. Option Continue\[Rule]True|False defines how the procedure proceeds when hitting the equation that can not be satisfied (like 1\[Equal]0). With Continue\[Rule]True such equation is simply neglected, and with Continue\[Rule]False the procedure immediately returns $Failed (i.e., no solution).";
-
-
-GaussSolve::inconsistent="Inconsistent equation encountered.";
-
-
-Options[GaussSolve]={Continue->True};
-
-
-GaussSolve[eqs_,vars_,OptionsPattern[]]:=Module[{sol1,res,i=0,l=Length@eqs,sf,cnt=TrueQ[OptionValue[Continue]]},
-sf=Collect[#,vars,Together]&;
-CWrite["\n"<>ToString[l]<>" dots:\n"];
-FCMonitor[
-Catch[Fold[
-(i++;CWrite["."];Quiet[Check[
-{sol1}=Quiet[Solve[0==sf[#2/.#1],vars],{Solve::svars}],
-sol1={};If[cnt,Message[GaussSolve::inconsistent],Throw[$Failed]],
-{Set::shape}],{Set::shape}];Join[(#1->sf[#2/.sol1])&@@@#1,sol1])&,{},eqs]],
-Overlay[{ProgressIndicator[i,{0,l}],ToString[i]<>"/"<>ToString[l]},Alignment->Center]]
-]
-
-
-todo["Implement GaussSolve for matrices. Or at least better version of NullSpace."]
-
-
 InvertMod::usage="InvertMod[\!\(\*SubscriptBox[
 StyleBox[\"P\", \"TI\"], \(1\)]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
@@ -966,6 +805,244 @@ num=den*ex;
 denc=(den/.{x:Power[_,1/2]:>-x});
 If[denc=!=den,Factor[Expand[num*denc]/Expand[den*denc]],ex]
 ];
+
+
+PolyKer::usage="PolyKer[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\)] gives a list of nullvectors {\!\(\*SubscriptBox[
+StyleBox[\"u\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"u\", \"TI\"], \(2\)]\),\[Ellipsis]} such that each \!\(\*
+StyleBox[\"u\", \"TI\"]\) satisfies \!\(\*
+StyleBox[
+StyleBox[
+RowBox[{\"m\", \"u\"}]], \"TI\"]\)\!\(\*
+StyleBox[\"=\", \"TI\"]\)\!\(\*
+StyleBox[\"0\", \"TI\"]\)(mod \!\(\*
+StyleBox[\"P\", \"TI\"]\)).";
+
+
+PolyKer[m_,poly_,x_]:=Module[{k=Exponent[poly,x],n=Dimensions[m][[2]],id,mr,xm,evs},
+mr=QuolyMod[m,poly,x];
+mr=id[Coefficient[mr,x,#]]&/@Range[0,k-1];
+xm=CoefficientList[poly,x];(*action of x as a matrix from the right*)
+xm=Append[Rest[IdentityMatrix[k]],-Most[xm]/Last[xm]];
+evs=Factor[(x^Range[0,k-1]).Partition[#,n]]&/@NullSpace[ArrayFlatten[Transpose@NestList[Dot[#1,xm]&,mr,k-1]/.id->Identity]];
+evs
+]
+
+
+PolyVectorBasis::usage="PolyVectorBasis[\!\(\*
+StyleBox[\"{\", \"TI\"]\)\!\(\*
+StyleBox[SubscriptBox[
+StyleBox[\"u\", \"TI\"], \"1\"], \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[SubscriptBox[
+StyleBox[\"u\", \"TI\"], \"2\"], \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Ellipsis]\", \"TI\"]\)\!\(\*
+StyleBox[\"}\", \"TI\"]\),\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\)] picks a basis out of \!\(\*
+StyleBox[\"{\", \"TI\"]\)\!\(\*
+StyleBox[SubscriptBox[
+StyleBox[\"u\", \"TI\"], \"1\"], \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[SubscriptBox[
+StyleBox[\"u\", \"TI\"], \"2\"], \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Ellipsis]\", \"TI\"]\)\!\(\*
+StyleBox[\"}\", \"TI\"]\) vectors in the field \!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"[\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\"]\", \"TI\"]\)\!\(\*
+StyleBox[\"/\", \"TI\"]\)\!\(\*
+StyleBox[\"P\", \"TI\"]\) where \!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) is an irreducible polynomial."
+
+
+PolyVectorBasis[evs_,poly_,x_]:=Module[{basis={},basis1},
+Scan[(basis1=Append[basis,#];If[PolyKer[Transpose@basis1,poly,x]==={},basis=basis1])&,evs];
+basis
+]
+
+
+PolyEigenvalues::usage="PolyEigenvalues[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\),\!\(\*
+StyleBox[\"\[Lambda]\", \"TI\"]\)] gives eigenvalues for the matrix \!\(\*
+StyleBox[\"m\", \"TI\"]\) with entries in the field \!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"[\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\"]\", \"TI\"]\)\!\(\*
+StyleBox[\"/\", \"TI\"]\)\!\(\*
+StyleBox[\"P\", \"TI\"]\) where \!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) is an irreducible polynomial. An eigenvalue \!\(\*
+StyleBox[\"\[Lambda]\", \"TI\"]\) is defined as a root of \!\(\*
+StyleBox[\"|\", \"TI\"]\)\!\(\*
+StyleBox[\"m\", \"TI\"]\)\!\(\*
+StyleBox[\"-\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Lambda]P\", \"TI\"]\)\!\(\*
+StyleBox[\"'\", \"TI\"]\)\!\(\*
+StyleBox[\"|\", \"TI\"]\)\!\(\*
+StyleBox[\"=\", \"TI\"]\)\!\(\*
+StyleBox[\"0\", \"TI\"]\)(mod \!\(\*
+StyleBox[\"P\", \"TI\"]\)) provided that this root is independent of \!\(\*
+StyleBox[\"x\", \"TI\"]\).";
+PolyEigenvalues::error="Can not determine eigenvalues. Aborting...";
+
+
+PolyEigenvalues[m_,poly_,x_Symbol]:=Module[
+{chpoly,a},
+chpoly=Factor@QuolyMod[CharacteristicPolynomial[m,a]/.a->a D[poly,x],poly,x];
+If[Not[FreeQ[chpoly,x]],Message[PolyEigenvalues::error];Abort[]];
+Replace[a,#]&/@Flatten[Replace[Factors@chpoly,{_?(FreeQ[#,a]&):>Sequence[],{p_,n_}:>ConstantArray[Solve[p==0,a],n]},{1}]]
+]
+
+
+PolyEigenspace::usage="PolyEigenvalues[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\),\!\(\*
+StyleBox[\"\[Lambda]\", \"TI\"]\)] gives the eigenvectors {\!\(\*SubscriptBox[
+StyleBox[\"u\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"u\", \"TI\"], \(2\)]\),\[Ellipsis]} corresponding to the eigenvalue \!\(\*
+StyleBox[\"\[Lambda]\", \"TI\"]\). Each \!\(\*
+StyleBox[\"u\", \"TI\"]\) is such that (\!\(\*
+StyleBox[\"m\", \"TI\"]\)\!\(\*
+StyleBox[\"-\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Lambda]P\", \"TI\"]\)\!\(\*
+StyleBox[\"'\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"u\", \"TI\"]\)\!\(\*
+StyleBox[\"=\", \"TI\"]\)\!\(\*
+StyleBox[\"0\", \"TI\"]\)(mod \!\(\*
+StyleBox[\"P\", \"TI\"]\))."
+
+
+PolyEigenspace[m_?SquareMatrixQ,poly_,x_,\[Lambda]_]:=PolyVectorBasis[SortBy[PolyKer[m-\[Lambda] IdentityMatrix[Length@m] D[poly,x],poly,x],Total[Exponent[#,x]]&],poly,x]
+
+
+PolyEigenspace[m_?SquareMatrixQ,poly_,x_,\[Lambda]s_List]:=Join@@(PolyEigenspace[m,poly,x,#]&/@\[Lambda]s)
+
+
+PolyEigenspace[m_?SquareMatrixQ,poly_,x_,All]:=Join@@(PolyEigenspace[m,poly,x,#]&/@PolyEigenvalues[m,poly,x])
+
+
+done["PolyEigenspace: remove linearly dependent vectors."]
+done["PolyEigenspace: allow for a list of \[Lambda]s."]
+
+
+VectorBasis::usage="VectorBasis[{v1,v2,...}] constructs basis in linear span of vectors v1,v2,\[Ellipsis]. Basically, it removes all dependent vectors from the given list.";
+
+
+VectorBasis[vectors:{__List}]:=Module[{r=0,basis={},rrbasis={}},
+Scan[(If[MatrixRank[AppendTo[basis,#]]>r,r++,basis=Most[basis]])&,vectors];basis
+]
+
+
+JDecomposition::usage="JDecomposition[\!\(\*
+StyleBox[\"m\", \"TI\"]\)] yields the Jordan decomposition of a square matrix \!\(\*
+StyleBox[\"m\", \"TI\"]\). The result is a list {\!\(\*
+StyleBox[\"b\", \"TI\"]\),\!\(\*
+StyleBox[\"n\", \"TI\"]\)} where \!\(\*
+StyleBox[\"b\", \"TI\"]\) is a similarity matrix and \!\(\*
+StyleBox[\"n\", \"TI\"]\) is the Jordan canonical form of \!\(\*
+StyleBox[\"m\", \"TI\"]\). JDecomposition[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"l\", \"TI\"]\)] does the same, except that it puts \!\(\*
+StyleBox[\"l\", \"TI\"]\) above diagonal instead of 1.";
+
+
+JDecomposition[m_?SquareMatrixQ]:=Module[
+{s,d,a,b,p,jc,n=Length@m},
+Check[{s,a}=JordanDecomposition[m],Return[$Failed]];
+s=Factor@s;
+a=Simplify@Transform[m,s];
+If[!JFormQ[a],Return[$Failed]];
+(*Ugly hack to deal with Mathematica's bugs related to JordanDecomposition*)
+d=DiagonalMatrix[FoldList[If[#2===0,1,#1/#2]&,1,Diagonal[a,1]]];s=ODot[s,d];a=Simplify@Transform[a,d];
+{s,a}
+]
+
+
+JDecompositionData::usage="JDecompositionData[\!\(\*
+StyleBox[\"m\", \"TI\"]\)] gives data for the Jordan decomposition of a square matrix \!\(\*
+StyleBox[\"m\", \"TI\"]\). The result has a form {{\!\(\*
+StyleBox[\"\[Lambda]\", \"TI\"]\),\!\(\*
+StyleBox[\"ulist\", \"TI\"]\),\!\(\*
+StyleBox[\"vlist\", \"TI\"]\)},...} where each element corresponds to Jordan cell with the eigenvalue \!\(\*
+StyleBox[\"\[Lambda]\", \"TI\"]\) , \!\(\*
+StyleBox[\"ulist\", \"TI\"]\) being a Jordan chain vectors, starting from the eigenvectors, and \!\(\*
+StyleBox[\"vlist\", \"TI\"]\) being the same for transposed matrix. Note that dual bases are \!\(\*
+StyleBox[\"ulist\", \"TI\"]\) and Reverse[\!\(\*
+StyleBox[\"vlist\", \"TI\"]\)].";
+
+
+JDecompositionData[m_]:=Module[{
+n=Length@m,
+t,j,
+inds,
+sizes,
+evals,
+us,vs
+},
+{t,j}=JDecomposition[m];
+inds=Flatten[{0,Position[Diagonal[j,1],0,{1}],n}];
+sizes=Differences[inds];
+Assert[n===Plus@@sizes];
+evals=j[[#,#]]&/@Rest[inds];
+us=PartitionByLengths[Transpose[t],sizes];
+vs=Factor[Reverse/@PartitionByLengths[Inverse[t],sizes]];
+(*Outer[ODot,Flatten[vs,1],Flatten[us,1],1](*supposed to be identity matrix*)*)
+Transpose[{evals,us,vs}]
+]
+
+
+GaussSolve::usage="GaussSolve[eqs,vars] implements gauss method of the solution of linear equations. Option Continue\[Rule]True|False defines how the procedure proceeds when hitting the equation that can not be satisfied (like 1\[Equal]0). With Continue\[Rule]True such equation is simply neglected, and with Continue\[Rule]False the procedure immediately returns $Failed (i.e., no solution).";
+
+
+GaussSolve::inconsistent="Inconsistent equation encountered.";
+
+
+Options[GaussSolve]={Continue->True};
+
+
+GaussSolve[eqs_,vars_,OptionsPattern[]]:=Module[{sol1,res,i=0,l=Length@eqs,sf,cnt=TrueQ[OptionValue[Continue]]},
+sf=Collect[#,vars,Together]&;
+CWrite["\n"<>ToString[l]<>" dots:\n"];
+FCMonitor[
+Catch[Fold[
+(i++;CWrite["."];Quiet[Check[
+{sol1}=Quiet[Solve[0==sf[#2/.#1],vars],{Solve::svars}],
+sol1={};If[cnt,Message[GaussSolve::inconsistent],Throw[$Failed]],
+{Set::shape}],{Set::shape}];Join[(#1->sf[#2/.sol1])&@@@#1,sol1])&,{},eqs]],
+Overlay[{ProgressIndicator[i,{0,l}],ToString[i]<>"/"<>ToString[l]},Alignment->Center]]
+]
+
+
+todo["Implement GaussSolve for matrices. Or at least better version of NullSpace."]
 
 
 NilpotentQ::usage="NilpotentQ[\!\(\*
@@ -1796,7 +1873,7 @@ SortBy[sel[jdata,TrueQ[Negative[First@#]]&],First][[All,2]]
 A0A1ToSubspaces::usage="A0A1ToSubspaces[{A0,A1},Left|Right] gives the subspaces which may be used for the construction of the projectors for the balances.";
 
 
-A0A1ToSubspaces[{A0_?SquareMatrixQ,A1_?SquareMatrixQ},side:(Left|Right):Left]/;Length@A0==Length@A1:=Module[{l=Length@A1,\[Lambda],ns,A},
+A0A1ToSubspaces[{A0_?SquareMatrixQ,A1_?SquareMatrixQ},side:(Left|Right):Left]/;Length@A0==Length@A1:=Module[{l=Length[A1],\[Lambda],ns,A}, 
 A=ArrayFlatten[{{A0,A1-\[Lambda]*IdentityMatrix[l]},{0,A0}}];
 If[side===Left,A=Take[#,-l]&/@ker[A],A=Take[#,l]&/@ker[Transpose@A]];
 (*Get rid of denominators*)
