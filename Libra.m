@@ -70,10 +70,6 @@ res=Flatten[Outer[l,Sequence@@(List/@#//.{pre___,{a:Alternatives@@ar},{b:Alterna
 BeginPackage["Libra`"]
 
 
-Print["\!\(\*
-StyleBox[\"Libra\",\nFontWeight->\"Bold\"]\) (\:2696) is a package for the manipulation with differential systems.\n\[Copyright] Roman N.Lee 2018.\nRead from: "<>$InputFileName<>"\nMD5: "<>ToString[FileHash[$InputFileName,"MD5"]]];
-
-
 $LibraUseFermat=False;
 $LibraVersion="1.0\[Beta]";
 
@@ -154,8 +150,10 @@ FactorOut;FactorDependence;
 GaussSolve;
 
 
-InvertMod;QuolyMod;ExtendedQuolyMod;LeadingQModTerm=PolyLeadingTerm;LeadingQModOrder=PolyLeadingOrder;
+InvertMod;QuolyMod;ExtendedQuolyMod;PolyLeadingTerm;PolyLeadingOrder;
 OQuolyMod;
+PolyEigenvalues;
+PolyEigenspace;
 
 
 DenominatorOrder;
@@ -196,6 +194,32 @@ FactorLeadingLetter;FactorTrailingLetter;
 
 
 Begin["`Private`"]
+
+
+SetAttributes[FCStaticMonitor,{HoldAll}];
+FCStaticMonitor[code_,msg_String,delay_:0]:=If[$Notebooks,
+Monitor[code,msg,delay],
+WriteString["stdout","\n["<>msg];(WriteString["stdout","]"];#)&[code]
+];
+
+
+SetAttributes[FCMonitor,{HoldAll}];
+FCMonitor[code_,mon_,delay_:0,msg_String:""]:=If[$Notebooks,
+Monitor[code,mon,delay],
+If[msg=!="",WriteString["stdout","\n["<>msg]];(If[msg=!="",WriteString["stdout","]"]];#)&[code]
+];
+
+
+FCPrint[ex__]:=If[$Notebooks,Print[ex],Print@@(ToString/@{ex})];
+FCPrintTemporary[ex__]:=If[$Notebooks,PrintTemporary[ex],Print@@(ToString/@{ex})];
+
+
+FCPrint["\n******************** ",Style["Libra v"<>ToString[$LibraVersion],{Bold}]," ********************\n\
+\!\(\*
+StyleBox[\"Libra\",\nFontWeight->\"Bold\"]\) (\:2696) is a package for the manipulation with differential systems.\n\[Copyright] Roman N.Lee 2018.\nRead from: "<>$InputFileName<>"\nMD5: "<>ToString[FileHash[$InputFileName,"MD5"]]];
+
+
+CWrite[msg_String]:=If[!$Notebooks,WriteString["stdout",msg]];
 
 
 todolist={};
@@ -264,20 +288,20 @@ If[OptionValue[Print],Print[Style["Deleted extra(s) "<>StringRiffle[ToString/@ex
 
 
 Undo[ds_?DSystemQ,n_Integer:1]:=If[HistoryIndex[ds]>n,
-Unprotect[ds];Print[Style["History length is "<>ToString[HistoryIndex[ds]^=HistoryIndex[ds]-n]<>".",Small]];
+Unprotect[ds];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]^=HistoryIndex[ds]-n]<>".",Small]];
 Protect[ds];
 History[ds][[HistoryIndex[ds],1]],Message[History::first]];
 
 
 Undo[ds_?DSystemQ,All]:=(
-Unprotect[ds];Print[Style["History length is "<>ToString[HistoryIndex[ds]^=1]<>".",Small]];
+Unprotect[ds];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]^=1]<>".",Small]];
 Protect[ds];History[ds][[HistoryIndex[ds],1]])
 
 
-Redo[ds_?DSystemQ,n_Integer:1]:=If[HistoryIndex[ds]<=Length@History[ds]-n,Unprotect[ds];Print[Style["History length is "<>ToString[HistoryIndex[ds]^=HistoryIndex[ds]+n]<>".",Small]];Protect[ds];History[ds][[HistoryIndex[ds],1]],Message[History::last]];
+Redo[ds_?DSystemQ,n_Integer:1]:=If[HistoryIndex[ds]<=Length@History[ds]-n,Unprotect[ds];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]^=HistoryIndex[ds]+n]<>".",Small]];Protect[ds];History[ds][[HistoryIndex[ds],1]],Message[History::last]];
 
 
-Redo[ds_?DSystemQ,All]:=(Unprotect[ds];Print[Style["History length is "<>ToString[HistoryIndex[ds]^=Length@History[ds]]<>".",Small]];Protect[ds];History[ds][[HistoryIndex[ds],1]]);
+Redo[ds_?DSystemQ,All]:=(Unprotect[ds];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]^=Length@History[ds]]<>".",Small]];Protect[ds];History[ds][[HistoryIndex[ds],1]]);
 
 
 HistoryChop::usage="HistoryChop[ds_] chops off forward entries in history. Use before applying HistoryConsolidate.";
@@ -305,7 +329,9 @@ start=Position[Take[History[ds],HistoryIndex[ds]],{_,{Undo,ds,_}|{NewDSystem,ds,
 val=History[ds][[start,1]];
 old=new=subs=Keys[val];
 end=HistoryIndex[ds];
-Monitor[Do[
+CWrite["\n"<>ToString[end-start]<>" dots:\n"];
+FCMonitor[Do[
+CWrite["."];
 Replace[History[ds][[i,2]],{
 {Transform,ds,tt_?SquareMatrixQ}:>(T=ODot[T,tt];If[inv,Ti=ODot[OInverse[tt],Ti]]),
 {Transform,ds,tt_?SquareMatrixQ,ii_}:>((*Modified 14.05.2019*)(*(*Deleted 14.05.2019*)t=IdentityMatrix[Length@ds];t[[ii,ii]]=tt;T=ODot[T,t];If[inv,Ti=ODot[OInverse[t],Ti]](*/Deleted 14.05.2019*)*)
@@ -351,8 +377,10 @@ HistoryCheck::usage="HistoryCheck[ds_] checks history consistency. It simply red
 HistoryCheck::inconsistent="History[`1`] is inconsistent at index `2`.";
 HistoryCheck[des_]:=Module[
 {m,i,hi=HistoryIndex[des],mn,action},
-Monitor[
+CWrite["\n"<>ToString[hi]<>" dots:\n"];
+FCMonitor[
 Do[
+CWrite["."];
 mn=History[des][[i,1]];
 action=History[des][[i,2]]/.des->m;
 #1[##2]&@@action;
@@ -437,12 +465,14 @@ ds[]:=ds[[]];
 ds/:Part[ds,a___]:=Map[Part[#,a]&,History[ds][[HistoryIndex[ds],1]]];
 ds/:Map[f_,ds,pars___]:=(t1=History[ds][[HistoryIndex[ds],1]];keys=Keys[t1];
 l=(Length@keys)*Length[ds]^2;i=0;
-Monitor[(t1[#]=Map[(i++;#)&@*f,t1[#],pars])&/@keys,
+CWrite["\n"<>ToString[l]<>" dots:\n"];
+FCMonitor[(t1[#]=Map[(i++;CWrite["."];#)&@*f,t1[#],pars])&/@keys,
 ProgressIndicator[i,{0,l}]];
 HistoryAppend[ds,{t1,{Map[f,#1,##2]&,ds,pars}}]);
 ds/:MapAt[f_,ds,pars___]:=(t1=History[ds][[HistoryIndex[ds],1]];keys=Keys[t1];
 l=(Length@keys)*Length[ds]^2;i=0;
-Monitor[(t1[#]=MapAt[(i++;#)&@*f,t1[#],pars])&/@keys,
+CWrite["\n"<>ToString[l]<>" dots:\n"];
+FCMonitor[(t1[#]=MapAt[(i++;CWrite["."];#)&@*f,t1[#],pars])&/@keys,
 ProgressIndicator[i,{0,l}]];
 HistoryAppend[ds,{t1,{MapAt[f,#1,##2]&,ds,pars}}])
 ]
@@ -450,6 +480,79 @@ HistoryAppend[ds,{t1,{MapAt[f,#1,##2]&,ds,pars}}])
 
 DSystemQ::usage="DSystemQ[ds] returns True if ds is a differential system.";
 DSystemQ[_]=False;
+
+
+PolyEigenvalues::usage="PolyEigenvalues[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\)] gives eigenvalues for the matrix with entries in the field \!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"[\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\"]\", \"TI\"]\)\!\(\*
+StyleBox[\"/\", \"TI\"]\)\!\(\*
+StyleBox[\"P\", \"TI\"]\) where \!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) is an irreducible polynomial. An eigenvalue \!\(\*
+StyleBox[\"\[Lambda]\", \"TI\"]\) is defined as a root of \!\(\*
+StyleBox[\"|\", \"TI\"]\)\!\(\*
+StyleBox[\"m\", \"TI\"]\)\!\(\*
+StyleBox[\"-\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Lambda]P\", \"TI\"]\)\!\(\*
+StyleBox[\"'\", \"TI\"]\)\!\(\*
+StyleBox[\"|\", \"TI\"]\)\!\(\*
+StyleBox[\"=\", \"TI\"]\)\!\(\*
+StyleBox[\"0\", \"TI\"]\)(mod \!\(\*
+StyleBox[\"P\", \"TI\"]\)) provided that this root is independent of \!\(\*
+StyleBox[\"x\", \"TI\"]\).";
+PolyEigenvalues::error="Can not determine eigenvalues. Aborting...";
+PolyEigenvalues[m_,poly_,x_Symbol]/;PolyQ[poly,x]:=Module[
+{chpoly,a},
+chpoly=Factor@QuolyMod[CharacteristicPolynomial[m,a]/.a->a D[poly,x],poly,x];
+If[Not[FreeQ[chpoly,x]],Message[PolyEigenvalues::error];Abort[]];
+Replace[a,#]&/@Flatten[Replace[Factors@chpoly,{_?(FreeQ[#,a]&):>Sequence[],{p_,n_}:>ConstantArray[Solve[p==0,a],n]},{1}]]
+]
+
+
+PolyEigenspace::usage="PolyEigenvalues[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\),\!\(\*
+StyleBox[\"\[Lambda]\", \"TI\"]\)] gives the eigenvectors {\!\(\*SubscriptBox[
+StyleBox[\"u\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"u\", \"TI\"], \(2\)]\),\[Ellipsis]} corresponding to the eigenvalue \!\(\*
+StyleBox[\"\[Lambda]\", \"TI\"]\). Each \!\(\*
+StyleBox[\"u\", \"TI\"]\) is such that (\!\(\*
+StyleBox[\"m\", \"TI\"]\)\!\(\*
+StyleBox[\"-\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Lambda]P\", \"TI\"]\)\!\(\*
+StyleBox[\"'\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\)\!\(\*
+StyleBox[\"u\", \"TI\"]\)\!\(\*
+StyleBox[\"=\", \"TI\"]\)\!\(\*
+StyleBox[\"0\", \"TI\"]\)(mod \!\(\*
+StyleBox[\"P\", \"TI\"]\))."
+
+
+PolyEigenspace[m_,poly_,x_,\[Lambda]_]:=Module[{k=Exponent[poly,x],n=Length[m],id,mr,xm,evs},
+mr=QuolyMod[m-\[Lambda] IdentityMatrix[n] D[poly,x],poly,x];
+mr=id[Coefficient[mr,x,#]]&/@Range[0,k-1];
+xm=CoefficientList[poly,x];(*action of x as a matrix from the right*)
+xm=Append[Rest[IdentityMatrix[k]],-Most[xm]/Last[xm]];
+evs=Factor[(x^Range[0,k-1]).Partition[#,n]]&/@NullSpace[ArrayFlatten[Transpose@NestList[Dot[#1,xm]&,mr,k-1]/.id->Identity]];
+]
+
+
+todo["PolyEigenspace: remove linearly dependent vectors."]
+todo["PolyEigenspace: allow for a list of \[Lambda]s."]
 
 
 DeleteDependentRows::usage="DeleteDependentRows[{v1,v2,...}] constructs basis in linear span of vectors v1,v2,\[Ellipsis]. Basically, it removes all dependent vectors from the given list.";
@@ -524,15 +627,15 @@ GaussSolve::usage="GaussSolve[eqs,vars] implements gauss method of the solution 
 GaussSolve::inconsistent="Inconsistent equation encountered.";
 
 
-Options[GaussSolve]={Monitor->True,Continue->True};
+Options[GaussSolve]={Continue->True};
 
 
 GaussSolve[eqs_,vars_,OptionsPattern[]]:=Module[{sol1,res,i=0,l=Length@eqs,sf,cnt=TrueQ[OptionValue[Continue]]},
 sf=Collect[#,vars,Together]&;
-If[TrueQ[OptionValue[Monitor]],Monitor,#1&][
+CWrite["\n"<>ToString[l]<>" dots:\n"];
+FCMonitor[
 Catch[Fold[
-(i++;
-Quiet[Check[
+(i++;CWrite["."];Quiet[Check[
 {sol1}=Quiet[Solve[0==sf[#2/.#1],vars],{Solve::svars}],
 sol1={};If[cnt,Message[GaussSolve::inconsistent],Throw[$Failed]],
 {Set::shape}],{Set::shape}];Join[(#1->sf[#2/.sol1])&@@@#1,sol1])&,{},eqs]],
@@ -1087,7 +1190,7 @@ Replace[CheckAbort[FQuolyMod[quoly,poly,x],$Failed],$Failed:>(Print["OQuolyMod: 
 QuolyMod[quoly,poly,x]]
 
 
-FQuolyMod[exs__]:=Monitor[Fermatica`FQuolyMod[exs],Style["Executing Fermatica`FQuolyMod...",Tiny],1]
+FQuolyMod[exs__]:=FCStaticMonitor[Fermatica`FQuolyMod[exs],Style["Executing Fermatica`FQuolyMod...",Tiny],1]
 
 
 todo["Make better version of QuolyMod and especially FQuolyMod to deal with several successive moddings wrt to different polynomials and variables."];
@@ -1104,7 +1207,7 @@ Replace[CheckAbort[FDot[exs],$Failed],$Failed:>(Print["ODot: resorting to Mathem
 Together@Dot[exs]];
 
 
-FDot[exs__]:=Monitor[Fermatica`FDot[exs],Style["Executing Fermatica`FDot...",Tiny],1]
+FDot[exs__]:=FCStaticMonitor[Fermatica`FDot[exs],Style["Executing Fermatica`FDot...",Tiny],1]
 
 
 OInverse::usage="OInverse[m] is an optimized version of Inverse[m] for block-triangular matrices.";
@@ -1113,23 +1216,27 @@ OInverse::usage="OInverse[m] is an optimized version of Inverse[m] for block-tri
 Options[OInverse]={Print->False,UseFermat->False};
 
 
-OInverse[m_,OptionsPattern[]]:=Module[{s=TClosure[m],diag,dep,mi=IdentityMatrix[Length@m],stat=""},
+OInverse[m_,OptionsPattern[]]:=Module[{s=TClosure[m],print=TrueQ@OptionValue[Print],diag,dep,mi=IdentityMatrix[Length@m],stat=""},
 (*invert diagonal*)
-If[TrueQ@OptionValue[Print],Monitor,#&][
+If[print,FCMonitor,#&][
 stat="Finding diagonal blocks\[Ellipsis]";
+If[print,CWrite["\n"];CWrite[stat]];
 diag=EntangledBlocksIndices[s,True];
 (stat="Inverting diagonal elements with indices "<>ToString[#];
+If[print,CWrite["\n"];CWrite[stat]];
 mi[[#,#]]=If[$LibraUseFermat&&OptionValue[UseFermat],
 Replace[CheckAbort[FInverse[#],$Failed],$Failed:>(Print["Inverse: resorting to Mathematica\[Ellipsis]"];Together[Inverse[#]])],
 Together[Inverse[#]]]&@m[[#,#]])&/@diag;
-(dep=Complement[DependentRowIndices[s,#,True],#];stat="Inverting off-diagonal elements "<>ToString[dep]<>" on rows "<>ToString[#];mi[[#,dep]]=-ODot[mi[[#,#]],ODot[m[[#,dep]],mi[[dep,dep]]]])&/@diag;
+(dep=Complement[DependentRowIndices[s,#,True],#];stat="Inverting off-diagonal elements "<>ToString[dep]<>" on rows "<>ToString[#];
+If[print,CWrite["\n"];CWrite[stat]];
+mi[[#,dep]]=-ODot[mi[[#,#]],ODot[m[[#,dep]],mi[[dep,dep]]]])&/@diag;
 ,
 stat];
 Return[mi]
 ]
 
 
-FInverse[ex_]:=Monitor[Fermatica`FInverse[ex],Style["Executing Fermatica`FInverse...",Tiny],1]
+FInverse[ex_]:=FCStaticMonitor[Fermatica`FInverse[ex],Style["Executing Fermatica`FInverse...",Tiny],1]
 
 
 Unprotect[Series];
@@ -1287,17 +1394,17 @@ ssd[M_?SquareMatrixQ,y_,yv_]:=Module[
 {pr,A,T,JF,x2A,p,fp,Q,poles,dens,qs,Bs,\[Lambda],tmp,
 Rcoefs,rcoefs,n,Rdata,
 statusline=""},
-Monitor[
+FCMonitor[
 If[!RatFuncQ[M,y],Message[SeriesSolutionData::notrat,yv];Return[$Failed]];
 If[(pr=PoincareRank[M,{y,0}])>0,Message[SeriesSolutionData::ppr,yv,0];Return[$Failed]];
 A=SeriesCoefficient[M,{y,0,-1}];
-statusline="Reducing to Jordan form";
+CWrite["\n"];CWrite[statusline="Reducing to Jordan form..."];
 {T,JF}=JDecomposition[A];
 fp=p[#[[1,1]],Max[Length/@#]-1]&/@GatherBy[DeleteDuplicates[Map[First,Split[Transpose[{Diagonal[JF],Append[Diagonal[JF,1],0]}],#1[[2]]=!=0&],{2}]],First];
 PrintTemporary["Leading expansion terms:\n",Sequence@@(Riffle[TraditionalForm[yv^#1 Log[yv]^#2]&@@@fp,","])];
 If[MemberQ[Factor[Subtract@@@Subsets[First/@fp,{2}]],_Integer],Message[SeriesSolutionData::res,yv,0];Return[$Failed]];
 (*Now we find common denominator Q, Eq(6) of DESS paper*)
-statusline="Getting rid  of denominators";
+CWrite["\n"];CWrite[statusline="Getting rid  of denominators..."];
 (*poles=DeleteCases[PolesPosition[M,y],\[Infinity]|0];
 Q=Times@@((y-#)^(1+PoincareRank[M,{y,#}])&/@poles);*)
 Q=1;
@@ -1307,12 +1414,12 @@ Q*=PolynomialLCM[Sequence@@dens,y];
 Q=Numerator@Together[Q/y];
 qs=CoefficientList[Q,y];
 Bs=Coefficient[Factor[Q(y M-\[Lambda] IdentityMatrix[Length@M])],y,#]&/@Range[0,Length[qs]-1];
-statusline="Evaluating matrix exponent.";
+CWrite["\n"];CWrite[statusline="Evaluating matrix exponent..."];
 x2A=ODot[ODot[T,(Expand[Expand[Simplify[MatrixExp[JF*Log[y]]]p[0,0]]/.{Log[y]->p[0,1],y->p[1,0]}]//.{p[a_,b_]^c_:>p[a*c,b*c],p[a_,b_]*p[c_,d_]:>p[a+c,b+d]})],OInverse[T]];
-statusline="Evaluating recurrence coefficients.";
+CWrite["\n"];CWrite[statusline="Evaluating recurrence coefficients..."];
 Rcoefs=Function[{\[Alpha],k},Evaluate@MapThread[bjf[#1,#2*IdentityMatrix[Length@M],k+1]&,{MapIndexed[(#/.{\[Lambda]->\[Alpha]+n-First[#2]+1})&,Bs],-qs},1](*Function[n,]*)];
 Rdata=Function[{\[Alpha],k},
-statusline="Evaluating recurrence coefficients for power: "<>ToString[\[Alpha]];
+CWrite["\n"];CWrite[statusline="Evaluating recurrence coefficients for power "<>ToString[\[Alpha]]<>"..."];
 rcoefs=Rcoefs[\[Alpha],k](*[n]*);
 tmp=OInverse[-rcoefs[[1]]];(*may be improved by dedicated calculation of inverse of bjf with 
 off-diagonal terms calculated by iterative multiplication by -A^(-1)B*)
@@ -1362,9 +1469,9 @@ PexpExpansion[{M_?MatrixQ,n_Integer},x_Symbol]:=Module[{p=PolesInfo[M,x],op,res,
 If[Not[MatchQ[p,{{_,0}...}]],Abort[]];
 p=DeleteCases[First/@p,\[Infinity]];
 op=Plus@@(SeriesCoefficient[M,{x,#,-1}]w[#]&/@p); (*operator*)
-Monitor[
-res=NestList[Function[pr,i++;t=Expand[Dot[op,pr]];Plus@@((Coefficient[t,w[#]]/.{II[{a___},x]:>II[{#,a},x]})&/@p)],IdentityMatrix[Length@M]*II[{},x],n],
-i]
+FCMonitor[
+res=NestList[Function[pr,i++;CWrite["."];t=Expand[Dot[op,pr]];Plus@@((Coefficient[t,w[#]]/.{II[{a___},x]:>II[{#,a},x]})&/@p)],IdentityMatrix[Length@M]*II[{},x],n],
+i,"\n"]
 ]
 
 
@@ -1372,8 +1479,9 @@ PexpExpansion[{M_?MatrixQ,n_Integer},x_Symbol,x0_]:=Module[{p=PolesInfo[M,x],op,
 If[Not[MatchQ[p,{{_,0}...}]],Abort[]];
 p=DeleteCases[First/@p,\[Infinity]];
 op=Plus@@(SeriesCoefficient[M,{x,#,-1}]w[#]&/@p); (*operator*)
-Monitor[
-res=NestList[Function[pr,i++;t=Expand[Dot[op,pr]];Plus@@((Coefficient[t,w[#]]/.{II[{a___},x,x0]:>II[{#,a},x,x0]})&/@p)],IdentityMatrix[Length@M]*II[{},x,x0],n],
+FCMonitor[
+res=NestList[Function[pr,i++;
+CWrite["."];t=Expand[Dot[op,pr]];Plus@@((Coefficient[t,w[#]]/.{II[{a___},x,x0]:>II[{#,a},x,x0]})&/@p)],IdentityMatrix[Length@M]*II[{},x,x0],n],
 i]
 ]
 
@@ -1412,8 +1520,9 @@ SpotCoefficients::usage="SpotCoefficients[Mf,T,\[Epsilon],{x,y(x),o}] tries to f
 SpotCoefficients[Mf_,T_,\[Epsilon]_,{x_,y_,o_}]/;FreeQ[y,x]:=SpotCoefficients[Mf,T,\[Epsilon],{x,y,o}]
 SpotCoefficients[Mf_,T_,\[Epsilon]_,{x_,y_,o_}]:=Module[{rdata,TUr,z,zrule,ii,p,powers,tmp,cs=ConstantArray[0,Length@Mf]},
 zrule=First[Solve[z==y,x]];
-Monitor[
-MapIndexed[(ii=#;rdata=SeriesSolutionData[Factor[Mf[[ii,ii]]],{x,y}];TUr=(Plus@@Partition[#1,Length[ii]]&)/@Map[Collect[Expand[#1 p[0,0]]/. {Log[z]->p[0,1],z->p[1,0]}//. {p[a_,b_]^c_:>p[a c,b c],p[a_,b_] p[c_,d_]:>p[a+c,b+d]},_p,Factor]&,Normal[(T[[ii,ii]]/. zrule).ConstructSeriesSolution[rdata,{z,o},Split->True,O->True]],{2}];powers={};tmp={};MapIndexed[Function[{row,i},Module[{ps=SortBy[Union[Cases[row,_p,All]],First[#/.\[Epsilon]->0]&]},Catch[((tmp=Append[tmp,Factor[Coefficient[row,#1]]];If[MatrixRank[tmp]>=First[i],AppendTo[powers,#1];Throw[0]];tmp=Most[tmp])&)/@ps;
+FCMonitor[
+MapIndexed[(ii=#;CWrite[ToString[ii]];
+rdata=SeriesSolutionData[Factor[Mf[[ii,ii]]],{x,y}];TUr=(Plus@@Partition[#1,Length[ii]]&)/@Map[Collect[Expand[#1 p[0,0]]/. {Log[z]->p[0,1],z->p[1,0]}//. {p[a_,b_]^c_:>p[a c,b c],p[a_,b_] p[c_,d_]:>p[a+c,b+d]},_p,Factor]&,Normal[(T[[ii,ii]]/. zrule).ConstructSeriesSolution[rdata,{z,o},Split->True,O->True]],{2}];powers={};tmp={};MapIndexed[Function[{row,i},Module[{ps=SortBy[Union[Cases[row,_p,All]],First[#/.\[Epsilon]->0]&]},Catch[((tmp=Append[tmp,Factor[Coefficient[row,#1]]];If[MatrixRank[tmp]>=First[i],AppendTo[powers,#1];Throw[0]];tmp=Most[tmp])&)/@ps;
 Print["Could not find suitable coefficients for block ",ii," Aborting..."];
 Abort[]]]],TUr];cs[[ii]]=MapIndexed[{y,ii[[First[#2]]],Sequence@@#1}&,powers];
 )&,EntangledBlocksIndices[TClosure[Mf]+TClosure[T]]],
@@ -1713,8 +1822,9 @@ GetSubspaces[m_Association,{x_,x0_},args___]:=GetSubspaces[m[x],{x,x0},args]
 
 GetSubspaces[m_?SquareMatrixQ,{x_,x0_},\[Epsilon]_,side:(Left|Right):Left,OptionsPattern[]]:=Module[
 {r,s,o,ser,m0,m1,status=""},
-Monitor[
+FCMonitor[
 status="Evaluating Poincare rank...";
+CWrite["\n"<>status];
 r=PoincareRank[m,{x,x0}];
 PrintTemporary["Poincare rank: "<>ToString[r]];
 status="Evaluating expansion";
@@ -1725,17 +1835,20 @@ If[TrueQ@OptionValue[All],
 (*Just return all subspaces*)
 m0=-s*SeriesCoefficient[m,{x,x0,o}];
 status="Evaluating subspaces";
+CWrite["\n"<>status];
 Return[A0ToSubspaces[m0,\[Epsilon]->0,side,All->True]],
 (*return Barkatou subspaces*)
 ser=-s*Series[m,{x,x0,o+1}];
 m0=SeriesCoefficient[ser,{x,x0,o}];
 m1=SeriesCoefficient[ser,{x,x0,o+1}];
 status="Evaluating subspaces";
+CWrite["\n"<>status];
 Return[A0A1ToSubspaces[{m0,m1},side]]
 ],
 (*Fuchsian singularity*)
 m0=-s*SeriesCoefficient[m,{x,x0,o}];
 status="Evaluating subspaces";
+CWrite["\n"<>status];
 Return[A0ToSubspaces[m0,\[Epsilon]->0,side,All->OptionValue[All]]]
 ]
 ,status
@@ -2059,7 +2172,7 @@ If[poles=={},Return[transform]];
 (*(*Deleted 09.02.2018*)If[OptionValue[Check],If[!And@@(FuchsianQ[m[[#,#]],x]&/@blocks),Message[BlockTriangularToFuchsian::blocks]];Return[IdentityMatrix[n]]];(*/Deleted 09.02.2018*)*)
 Function[{x0,order},
 (*Cycle over blocks.*)
-Monitor[
+FCMonitor[
 Do[
 (*First, generate matrix*)
 i2="?";
@@ -2073,6 +2186,7 @@ vars=Flatten@vars;
 (*Now cycle over pole order*)
 Unset[i2];
 Do[
+CWrite["\n"<>ToString[x0]<>":"<>ToString[i1]<>"\[LeftArrow]"<>"i2"];
 If[x0=!=\[Infinity],
 t=IdentityMatrix[n]+c/(x-x0)^i2;o=-1,
 t=IdentityMatrix[n]+c*(x)^i2;o=1];
@@ -2144,7 +2258,8 @@ densPR=DenominatorsInfo[b[[;;lhigh,(-llow);;]],x];(*(*1/x is special: x=\[Infini
 {infPR}=Cases[densPR,{1/x,r_}\[RuleDelayed]r];Print[infPR];
 densPR=DeleteCases[densPR,{1/x,_}];(*here they are only finite*)*)
 Function[{den,pr},
-Monitor[
+CWrite["\n"<>ToString[den]<>": "<>ToString[pr]<>"\n"];
+FCMonitor[
 If[den=!=1/x,
 (*finite singularities*)
 deg=Exponent[den,x];
@@ -2157,6 +2272,7 @@ cm=vars.x^Range[0,Exponent[den,x]-1];
 part1=QuolyMod[Ah.cm-cm.Al,den,x];
 part2=QuolyMod[cm*D[den,x],den,x];
 Do[
+CWrite["."];
 Bhl=QuolyMod[Factor[b[x][[;;lhigh,(-llow);;]]den^(p+1)],den,x];
 t[[;;lhigh,(-llow);;]]=cm/den^p/.GaussSolve[Flatten[CoefficientList[Bhl+part1+p*part2,x]],Flatten[vars]];
 Transform[b,t,Print->False]
@@ -2168,6 +2284,7 @@ t=IdentityMatrix[lhigh+llow];
 Ah=SeriesCoefficient[b[x][[;;lhigh,;;lhigh]],{x,\[Infinity],1}];
 Al=SeriesCoefficient[b[x][[(-llow);;,(-llow);;]],{x,\[Infinity],1}];
 Do[
+CWrite["."];
 Bhl=SeriesCoefficient[b[x][[;;lhigh,(-llow);;]],{x,\[Infinity],1-p}];
 t[[;;lhigh,(-llow);;]]=vars*x^p/.GaussSolve[Bhl+Ah.vars-vars.Al-p*vars,Flatten[vars]];
 Transform[b,t,Print->False]
