@@ -75,7 +75,6 @@ StyleBox[\"Libra\",\nFontWeight->\"Bold\"]\) (\:2696) is a package for the manip
 
 
 $LibraUseFermat=False;
-If[Not[ValueQ[$LibraTODO]],$LibraTODO=False];
 $LibraVersion="1.0\[Beta]";
 
 
@@ -295,12 +294,11 @@ HistoryConsolidate::chop="Did not change history to avoid overwriting forward en
 
 
 Options[HistoryConsolidate]={HistoryChop->False,HistoryAppend->True,
-Inverse->True(*whether to calculate inverse transformation matrix*),
-UseFermat->True
+Inverse->True(*whether to calculate inverse transformation matrix*)
 };
 
 
-HistoryConsolidate[ds_?DSystemQ,OptionsPattern[]]:=Module[{T=IdentityMatrix[Length@ds],Ti=IdentityMatrix[Length@ds],i,ii,t,start,end,val,old,new,subs,inv=OptionValue[Inverse],fermat=OptionValue[UseFermat]},
+HistoryConsolidate[ds_?DSystemQ,OptionsPattern[]]:=Module[{T=IdentityMatrix[Length@ds],Ti=IdentityMatrix[Length@ds],i,ii,t,start,end,val,old,new,subs,inv=OptionValue[Inverse]},
 (*First, calculate transformation. We move in history up to the first Undo[ds,All] or first entry*)
 (*starting index: either 1 or index of first full undo*)
 start=Position[Take[History[ds],HistoryIndex[ds]],{_,{Undo,ds,_}|{NewDSystem,ds,__},___},{1}][[-1,1]];
@@ -309,16 +307,16 @@ old=new=subs=Keys[val];
 end=HistoryIndex[ds];
 Monitor[Do[
 Replace[History[ds][[i,2]],{
-{Transform,ds,tt_?SquareMatrixQ}:>(T=ODot[T,tt,UseFermat->fermat];If[inv,Ti=ODot[OInverse[tt,UseFermat->fermat],Ti,UseFermat->fermat]]),
+{Transform,ds,tt_?SquareMatrixQ}:>(T=ODot[T,tt];If[inv,Ti=ODot[OInverse[tt],Ti]]),
 {Transform,ds,tt_?SquareMatrixQ,ii_}:>((*Modified 14.05.2019*)(*(*Deleted 14.05.2019*)t=IdentityMatrix[Length@ds];t[[ii,ii]]=tt;T=ODot[T,t];If[inv,Ti=ODot[OInverse[t],Ti]](*/Deleted 14.05.2019*)*)
-(*Added 14.05.2019*)T[[All,ii]]=ODot[T[[All,ii]],tt,UseFermat->fermat];If[inv,Ti[[ii]]=ODot[OInverse[tt,UseFermat->fermat],Ti[[ii]]],UseFermat->fermat](*/Added 14.05.2019*)
+(*Added 14.05.2019*)T[[All,ii]]=ODot[T[[All,ii]],tt];If[inv,Ti[[ii]]=ODot[OInverse[tt],Ti[[ii]]]](*/Added 14.05.2019*)
 (*/Modified 14.05.2019*)),
-{Transform,ds,tt:{_?SquareMatrixQ,_?SquareMatrixQ}}:>(T=ODot[T,tt[[1]],UseFermat->fermat];If[inv,Ti=ODot[tt[[2]],Ti,UseFermat->fermat]]),
+{Transform,ds,tt:{_?SquareMatrixQ,_?SquareMatrixQ}}:>(T=ODot[T,tt[[1]]];If[inv,Ti=ODot[tt[[2]],Ti]]),
 {Transform,ds,tt:{_?SquareMatrixQ,_?SquareMatrixQ},ii_}:>(
 (*Modified 14.05.2019*)
-T[[All,ii]]=ODot[T[[All,ii]],tt[[1]],UseFermat->fermat];
+T[[All,ii]]=ODot[T[[All,ii]],tt[[1]]];
 If[inv,
-Ti[[ii]]=ODot[tt[[2]],Ti[[ii]],UseFermat->fermat]]
+Ti[[ii]]=ODot[tt[[2]],Ti[[ii]]]]
 (*/Modified 14.05.2019*)),
 {ChangeVar,ds,tt_,nw_,___}:>(T=Factor[T/.tt];If[inv,Ti=Factor[Ti/.tt]];subs=Factor[subs/.tt];new=nw),
 {Factor,ds}:>(T=Factor[T];If[inv,Ti=Factor[Ti]]),
@@ -335,8 +333,8 @@ If[TrueQ@OptionValue[HistoryChop]||Length@History[ds]<=HistoryIndex[ds],
 HistoryAppend[ds,{val,{Undo,ds,end-start}}];
 ChangeVar[ds,Thread[old->subs],new];
 If[inv,
-Transform[ds,{T,Ti},UseFermat->fermat],
-Transform[ds,T,UseFermat->fermat]
+Transform[ds,{T,Ti}],
+Transform[ds,T]
 ],
 Message[HistoryConsolidate::chop,ds]
 ]];
@@ -1078,7 +1076,7 @@ $LibraUseFermat/:Set[$LibraUseFermat,val_]:=If[(val===False)||(val===True&&Membe
 OQuolyMod::usage="OQuolyMod[quoly,poly,x] gives the \"remainder\" of the rational function quoly when divided by poly. First capital 'O' stands for 'optimized'.";
 
 
-Options[OQuolyMod]={UseFermat->True};
+Options[OQuolyMod]={UseFermat->False};
 
 
 done["Remove obsolete definitionfor OQuolyMod[quoly_,rule:_Rule|_RuleDelayed]"];
@@ -1098,7 +1096,7 @@ todo["Make better version of QuolyMod and especially FQuolyMod to deal with seve
 ODot::usage="ODot[m1,m2,...] is an optimized dot product."
 
 
-Options[ODot]={UseFermat->True};
+Options[ODot]={UseFermat->False};
 
 
 ODot[exs__,OptionsPattern[]]:=If[$LibraUseFermat&&OptionValue[UseFermat],
@@ -1112,7 +1110,7 @@ FDot[exs__]:=Monitor[Fermatica`FDot[exs],Style["Executing Fermatica`FDot...",Tin
 OInverse::usage="OInverse[m] is an optimized version of Inverse[m] for block-triangular matrices.";
 
 
-Options[OInverse]={Print->False,UseFermat->True};
+Options[OInverse]={Print->False,UseFermat->False};
 
 
 OInverse[m_,OptionsPattern[]]:=Module[{s=TClosure[m],diag,dep,mi=IdentityMatrix[Length@m],stat=""},
@@ -1468,7 +1466,7 @@ StyleBox[\"ds\", \"TI\"]\),\!\(\*
 StyleBox[\"t\", \"TI\",\nFontSize->12]\)] transforms the differential system.";
 
 
-Options[Transform]={Simplify->Factor,Print->True,UseFermat->True};
+Options[Transform]={Simplify->Factor,Print->True,UseFermat->False};
 
 
 Transform::notinv="The two matrices are not reciprocal to each other. Aborting...";
@@ -1496,7 +1494,7 @@ SetOptions[D,NonConstants->First/@notas];
 
 
 Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],opts:OptionsPattern[]]:=Transform[m,{t,OInverse@t,True},{x,notas},i,opts];
-Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False},{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],opts:OptionsPattern[]]:=Module[{mt},If[checked||ODot[ti,t]===IdentityMatrix[Length@t],
+Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False},{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],OptionsPattern[]]:=Module[{mt},If[checked||ODot[ti,t]===IdentityMatrix[Length@t],
 mt=transformrange[m,t,ti,x,i,notas/.Association->List,OptionValue[UseFermat]];
 mt,
 Message[Transform::notinv];Abort[]]
@@ -1517,7 +1515,7 @@ mt
 
 
 Transform[ds_?DSystemQ,t_,i:{__Integer}|Span[_,_]:Span[1,All],opts:OptionsPattern[]]:=Module[{m=ds[[]]},
-Check[(m[#]=Transform[m[#],t,{#,Notations[ds]},i,UseFermat->OptionValue[UseFermat]])&/@Keys[m],Return[$Failed]];
+(m[#]=Transform[m[#],t,{#,Notations[ds]},i,opts])&/@Keys[m];
 HistoryAppend[ds,{m,{Transform,ds,t,i}},Sequence@@FilterRules[{opts},Options[HistoryAppend]]];
 m
 ]
@@ -1575,7 +1573,7 @@ StyleBox[\")\", \"TI\"]\),\!\(\*
 StyleBox[\"y\", \"TI\"]\)]. Should be good for reducing dependence on notations.";
 
 
-Options[ModNotation]={UseFermat->True}
+Options[ModNotation]={UseFermat->False}
 
 
 ModNotation[quoly_,rule:_Rule|_RuleDelayed,OptionsPattern[]]:=OQuolyMod[quoly,rule[[2]],rule[[1]],UseFermat->OptionValue[UseFermat]]
@@ -2375,10 +2373,10 @@ End[];
 EndPackage[]
 
 
-If[($LibraUseFermat=MemberQ[$ContextPath,"Fermatica`"]),Print["Using Fermatica for matrix operations!"]];
+If[($LibraUseFermat=MemberQ[$ContextPath,"Fermatica`"]),Print["Prepared to use Fermatica for matrix operations!"]];
 
 
-If[$LibraTODO,CellPrint[Cell["todo:", "Print", CellFrame->{{0, 0}, {0, 1}}]];
+If[NameQ["Global`$LibraTODO"]&&Symbol["Global`$LibraTODO"],CellPrint[Cell["todo:", "Print", CellFrame->{{0, 0}, {0, 1}}]];
 Print[Style["\[FilledSmallCircle] "<>#,{"Text",Small}]]&/@Libra`Private`todolist;
 CellPrint[Cell["done:", "Print", CellFrame->{{0, 0}, {0, 1}}]];
 Print[Style["\[Checkmark] "<>#,{"Text",Small}]]&/@Libra`Private`donelist];
