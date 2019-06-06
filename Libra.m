@@ -150,18 +150,6 @@ FactorOut;FactorDependence;
 GaussSolve;
 
 
-InvertMod;QuolyMod;ExtendedQuolyMod;PolyLeadingTerm;PolyLeadingOrder;
-OQuolyMod;
-
-
-PolyKer;PolyVectorBasis;
-PolyEigenvalues;
-PolyEigenspace;
-
-
-DenominatorOrder;
-
-
 BlockTriangularToFuchsian;
 
 
@@ -194,6 +182,18 @@ SpotCoefficients;
 
 
 FactorLeadingLetter;FactorTrailingLetter;
+
+
+InvertMod;QuolyMod;OQuolyMod;
+ExtendedQuolyMod;
+PolyLeadingOrder;
+(*PolyLeadingTerm;*)
+
+
+PolyKer;PolyVectorBasis;PolyMatrixRank;PolyInverse;
+PolyEigenvalues;
+PolyEigenspace;PolyProjector;
+PolySeriesRules;PolySeriesCoefficient;
 
 
 Begin["`Private`"]
@@ -698,6 +698,9 @@ Options[PolyLeadingOrder]={Check->False,Parallelize->False};
 PolyLeadingOrder::wrongargs="Something wrong with the arguments of PolyLeadingOrder.";
 
 
+PolyLeadingOrder[ds_?DSystemQ,poly_,x_,opts:OptionsPattern[]]:=PolyLeadingOrder[ds[x],pol_,x,opts]
+
+
 PolyLeadingOrder[quoly_List,args__,opts:OptionsPattern[]]:=If[OptionValue[Parallelize],
 DistributeDefinitions[PolyLeadingOrder];
 Min[ParallelMap[PolyLeadingOrder[#,args,opts]&,quoly,{ArrayDepth[quoly]}]],
@@ -727,78 +730,6 @@ k
 todo["Redefine PolyLeadingTerm for matrices."];
 
 
-PolyLeadingTerm::usage="PolyLeadingTerm[\!\(\*
-StyleBox[\"Q\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\),\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\),\!\(\*
-StyleBox[\"x\", \"TI\"]\)] gives the result of the form \!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*SuperscriptBox[
-StyleBox[\")\", \"TI\"], \(k\)]\)(\!\(\*
-StyleBox[\"R\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\), where \!\(\*
-StyleBox[\"k\", \"TI\"]\) is the \"leading order\" and \!\(\*
-StyleBox[\"R\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\) is the \"remainder\", such that \!\(\*
-StyleBox[\"Q\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\)\!\(\*
-StyleBox[\"=\", \"TI\"]\)\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*SuperscriptBox[
-StyleBox[\")\", \"TI\"], \(k\)]\)(\!\(\*
-StyleBox[\"R\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\)\!\(\*
-StyleBox[\"+\", \"TI\"]\)\!\(\*
-StyleBox[\" \", \"TI\"]\)\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\)\!\(\*
-StyleBox[\"\[CenterDot]\", \"TI\"]\)\!\(\*
-StyleBox[\"S\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\), where \!\(\*
-StyleBox[\"S\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\) is a rational function with denominator being mutually simple with \!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
-StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\).";
-
-
-Options[PolyLeadingTerm]={Check->False};
-PolyLeadingTerm::wrongargs="Something wrong with the arguments of PolyLeadingTerm.";
-
-
-PolyLeadingTerm[quoly_List,args__,opts:OptionsPattern[]]:=PolyLeadingTerm[#,args.opts]&/@quoly;
-
-
-PolyLeadingTerm[quoly_,poly_,x_,OptionsPattern[]]:=Module[{num,den,k},
-If[OptionValue[Check]&&!( RatFuncQ[quoly,x]&&PolyQ[poly,x]),Message[PolyLeadingTerm::wrongargs];Abort[]];
-k=PolyLeadingOrder[quoly,poly,x,Check->False];
-poly^k*QuolyMod[quoly/poly^k,poly,x]
-]
-
-
 SetAttributes[RadicalsUp,Listable];
 RadicalsUp[ex_]:=Module[{den=Denominator[ex],num,denc},
 num=den*ex;
@@ -809,7 +740,7 @@ If[denc=!=den,Factor[Expand[num*denc]/Expand[den*denc]],ex]
 
 PolyKer::usage="PolyKer[\!\(\*
 StyleBox[\"m\", \"TI\"]\),\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\),\!\(\*
@@ -817,22 +748,20 @@ StyleBox[\"x\", \"TI\"]\)] gives a list of nullvectors {\!\(\*SubscriptBox[
 StyleBox[\"u\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
 StyleBox[\"u\", \"TI\"], \(2\)]\),\[Ellipsis]} such that each \!\(\*
 StyleBox[\"u\", \"TI\"]\) satisfies \!\(\*
-StyleBox[
-StyleBox[
-RowBox[{\"m\", \"u\"}]], \"TI\"]\)\!\(\*
+StyleBox[\"mu\", \"TI\"]\)\!\(\*
 StyleBox[\"=\", \"TI\"]\)\!\(\*
 StyleBox[\"0\", \"TI\"]\)(mod \!\(\*
-StyleBox[\"P\", \"TI\"]\)).";
+StyleBox[\"p\", \"TI\"]\)).\nPolyKer[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\),False] assumes that \!\(\*
+StyleBox[\"m\", \"TI\"]\) does not need QuolyMod beforehand.";
 
 
-PolyKer[m_,poly_,x_]:=Module[{k=Exponent[poly,x],n=Dimensions[m][[2]],id,mr,xm,evs},
-mr=QuolyMod[m,poly,x];
-mr=id[Coefficient[mr,x,#]]&/@Range[0,k-1];
-xm=CoefficientList[poly,x];(*action of x as a matrix from the right*)
-xm=Append[Rest[IdentityMatrix[k]],-Most[xm]/Last[xm]];
-evs=Factor[(x^Range[0,k-1]).Partition[#,n]]&/@NullSpace[ArrayFlatten[Transpose@NestList[Dot[#1,xm]&,mr,k-1]/.id->Identity]];
-evs
-]
+PolyKer[m_?MatrixQ,poly_,x_,mod:(True|False):True]:=PolyVectorBasis[SortBy[polyKer[m,poly,x,mod],Total[Exponent[#,x]]&],poly,x,False]
 
 
 PolyVectorBasis::usage="PolyVectorBasis[\!\(\*
@@ -845,7 +774,7 @@ StyleBox[\"u\", \"TI\"], \"2\"], \"TI\"]\)\!\(\*
 StyleBox[\",\", \"TI\"]\)\!\(\*
 StyleBox[\"\[Ellipsis]\", \"TI\"]\)\!\(\*
 StyleBox[\"}\", \"TI\"]\),\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\),\!\(\*
@@ -864,22 +793,104 @@ StyleBox[\"[\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\"]\", \"TI\"]\)\!\(\*
 StyleBox[\"/\", \"TI\"]\)\!\(\*
-StyleBox[\"P\", \"TI\"]\) where \!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"p\", \"TI\"]\) where \!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\) is an irreducible polynomial."
+StyleBox[\")\", \"TI\"]\) is an irreducible polynomial.\PolyVectorBasis[\!\(\*
+StyleBox[\"{\", \"TI\"]\)\!\(\*
+StyleBox[SubscriptBox[
+StyleBox[\"u\", \"TI\"], \"1\"], \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[SubscriptBox[
+StyleBox[\"u\", \"TI\"], \"2\"], \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Ellipsis]\", \"TI\"]\)\!\(\*
+StyleBox[\"}\", \"TI\"]\),\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\),False] means that \!\(\*
+StyleBox[\"{\", \"TI\"]\)\!\(\*
+StyleBox[SubscriptBox[
+StyleBox[\"u\", \"TI\"], \"1\"], \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[SubscriptBox[
+StyleBox[\"u\", \"TI\"], \"2\"], \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Ellipsis]\", \"TI\"]\)\!\(\*
+StyleBox[\"}\", \"TI\"]\) does not need QuolyMod beforehand."
 
 
-PolyVectorBasis[evs_,poly_,x_]:=Module[{basis={},basis1},
-Scan[(basis1=Append[basis,#];If[PolyKer[Transpose@basis1,poly,x]==={},basis=basis1])&,evs];
+PolyVectorBasis[evs_,poly_,x_,mod:(True|False):True]:=Module[{basis={},basis1},
+Scan[(basis1=Append[basis,#];If[polyKer[Transpose@basis1,poly,x,mod]==={},basis=basis1])&,evs];
 basis
 ]
 
 
+polyKer[m_,poly_,x_,mod:(True|False):True]:=Module[{k=Exponent[poly,x],n=Dimensions[m][[2]],id,mr,xm,evs},
+If[mod,mr=QuolyMod[m,poly,x],mr=m];
+mr=id[Coefficient[mr,x,#]]&/@Range[0,k-1];
+xm=CoefficientList[poly,x];(*action of x as a matrix from the right*)
+xm=Append[Rest[IdentityMatrix[k]],-Most[xm]/Last[xm]];
+evs=Factor[(x^Range[0,k-1]).Partition[#,n]]&/@NullSpace[ArrayFlatten[Transpose@NestList[Dot[#1,xm]&,mr,k-1]/.id->Identity]]
+]
+
+
+PolyMatrixRank::usage="PolyMatrixRank[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\)] gives a matrix rank of \!\(\*
+StyleBox[\"m\", \"TI\"]\) with entries in \!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"[\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\"]\", \"TI\"]\)\!\(\*
+StyleBox[\"/\", \"TI\"]\)\!\(\*
+StyleBox[\"p\", \"TI\"]\).\nPolyMatrixRank[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\),False] assumes that \!\(\*
+StyleBox[\"m\", \"TI\"]\) does not need QuolyMod beforehand.";
+
+
+PolyMatrixRank[m_?MatrixQ,poly_,x_,mod:(True|False):True]:=Length@First@m-Length[PolyKer[m,poly,x]]
+
+
+PolyInverse::usage="PolyInverse[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\)] gives the inverse of \!\(\*
+StyleBox[\"m\", \"TI\"]\) with entries in \!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"[\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\"]\", \"TI\"]\)\!\(\*
+StyleBox[\"/\", \"TI\"]\)\!\(\*
+StyleBox[\"p\", \"TI\"]\).\nPolyInverse[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\),False] assumes that \!\(\*
+StyleBox[\"m\", \"TI\"]\) does not need QuolyMod beforehand.";
+PolyInverse[m_?SquareMatrixQ,poly_,x_,mod:(True|False):True]:=Module[{m1},If[mod,m1=QuolyMod[m,poly,x],m1=m];m1=QuolyMod[OInverse[m1],poly,x]]
+
+
 PolyEigenvalues::usage="PolyEigenvalues[\!\(\*
 StyleBox[\"m\", \"TI\"]\),\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\),\!\(\*
@@ -891,8 +902,8 @@ StyleBox[\"[\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\"]\", \"TI\"]\)\!\(\*
 StyleBox[\"/\", \"TI\"]\)\!\(\*
-StyleBox[\"P\", \"TI\"]\) where \!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"p\", \"TI\"]\) where \!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\) is an irreducible polynomial. An eigenvalue \!\(\*
@@ -905,7 +916,7 @@ StyleBox[\"'\", \"TI\"]\)\!\(\*
 StyleBox[\"|\", \"TI\"]\)\!\(\*
 StyleBox[\"=\", \"TI\"]\)\!\(\*
 StyleBox[\"0\", \"TI\"]\)(mod \!\(\*
-StyleBox[\"P\", \"TI\"]\)) provided that this root is independent of \!\(\*
+StyleBox[\"p\", \"TI\"]\)) provided that this root is independent of \!\(\*
 StyleBox[\"x\", \"TI\"]\).";
 PolyEigenvalues::error="Can not determine eigenvalues. Aborting...";
 
@@ -920,7 +931,7 @@ Replace[a,#]&/@Flatten[Replace[Factors@chpoly,{_?(FreeQ[#,a]&):>Sequence[],{p_,n
 
 PolyEigenspace::usage="PolyEigenvalues[\!\(\*
 StyleBox[\"m\", \"TI\"]\),\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\),\!\(\*
@@ -938,10 +949,10 @@ StyleBox[\")\", \"TI\"]\)\!\(\*
 StyleBox[\"u\", \"TI\"]\)\!\(\*
 StyleBox[\"=\", \"TI\"]\)\!\(\*
 StyleBox[\"0\", \"TI\"]\)(mod \!\(\*
-StyleBox[\"P\", \"TI\"]\))."
+StyleBox[\"p\", \"TI\"]\))."
 
 
-PolyEigenspace[m_?SquareMatrixQ,poly_,x_,\[Lambda]_]:=PolyVectorBasis[SortBy[PolyKer[m-\[Lambda] IdentityMatrix[Length@m] D[poly,x],poly,x],Total[Exponent[#,x]]&],poly,x]
+PolyEigenspace[m_?SquareMatrixQ,poly_,x_,\[Lambda]_]:=PolyKer[m-\[Lambda] IdentityMatrix[Length@m] D[poly,x],poly,x]
 
 
 PolyEigenspace[m_?SquareMatrixQ,poly_,x_,\[Lambda]s_List]:=Join@@(PolyEigenspace[m,poly,x,#]&/@\[Lambda]s)
@@ -952,6 +963,53 @@ PolyEigenspace[m_?SquareMatrixQ,poly_,x_,All]:=Join@@(PolyEigenspace[m,poly,x,#]
 
 done["PolyEigenspace: remove linearly dependent vectors."]
 done["PolyEigenspace: allow for a list of \[Lambda]s."]
+
+
+PolyProjector::usage="PolyProjector[\!\(\*
+StyleBox[\"ulist\", \"TI\"]\)\!\(\*
+StyleBox[\":\", \"TI\"]\)\!\(\*
+StyleBox[\"{\", \"TI\"]\)\!\(\*
+StyleBox[SubscriptBox[
+StyleBox[\"u\", \"TI\"], \"1\"], \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[SubscriptBox[
+StyleBox[\"u\", \"TI\"], \"2\"], \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Ellipsis]\", \"TI\"]\)\!\(\*
+StyleBox[\"}\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"vlist\", \"TI\"]\)\!\(\*
+StyleBox[\":\", \"TI\"]\)\!\(\*
+StyleBox[\"{\", \"TI\"]\)\!\(\*
+StyleBox[SubscriptBox[\"v\", \"1\"], \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[SubscriptBox[\"v\", \"2\"], \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Ellipsis]\", \"TI\"]\)\!\(\*
+StyleBox[\"}\", \"TI\"]\),\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\)] constructs a projector \!\(\*
+StyleBox[\"P\", \"TI\"]\) with entries in \!\(\*
+StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"[\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\"]\", \"TI\"]\)\!\(\*
+StyleBox[\"/\", \"TI\"]\)\!\(\*
+StyleBox[\"p\", \"TI\"]\).\nNote that if one of \!\(\*
+StyleBox[\"ulist\", \"TI\"]\) or \!\(\*
+StyleBox[\"vlist\", \"TI\"]\) is independent of \!\(\*
+StyleBox[\"x\", \"TI\"]\), \!\(\*
+StyleBox[\"P\", \"TI\"]\) is also a projector in the usual sense.";
+
+
+PolyProjector::error="Can not construct projector.";
+PolyProjector[u_,v_,poly_,x_]:=Module[{md,ut=Transpose[u]},
+Check[md=PolyInverse[ODot[v,ut],poly,x],Message[PolyProjector::error];Return[ConstantArray[0,{Length@First[v],Length@ut}]]];
+QuolyMod[ODot[ut,md,v],poly,x]
+]
 
 
 VectorBasis::usage="VectorBasis[{v1,v2,...}] constructs basis in linear span of vectors v1,v2,\[Ellipsis]. Basically, it removes all dependent vectors from the given list.";
@@ -1390,34 +1448,35 @@ lorder[expr_SeriesData,{x_Symbol,x0_}]/;MatchQ[Take[List@@expr,2],{x,x0}]:=expr[
 
 
 PolySeriesRules::usage="PolySeriesRules[\!\(\*
-StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"q\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\),{\!\(\*
 StyleBox[\"x\", \"TI\"]\),\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\),\!\(\*
-StyleBox[\"n\", \"TI\"]\)}] gives a list of the form {\!\(\*
+StyleBox[\"n\", \"TI\"]\)}] gives a list of the form {{\!\(\*
 StyleBox[\"k\", \"TI\"]\)\!\(\*
+StyleBox[\"}\", \"TI\"]\)\!\(\*
 StyleBox[\"\[Rule]\", \"TI\"]\)\!\(\*SubscriptBox[
 StyleBox[\"r\", \"TI\"], 
 StyleBox[\"k\", \"TI\"]]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\")\", \"TI\"]\),{\!\(\*
 StyleBox[\"k\", \"TI\"]\)\!\(\*
 StyleBox[\"+\", \"TI\"]\)\!\(\*
-StyleBox[\"1\", \"TI\"]\)\!\(\*
+StyleBox[\"1\", \"TI\"]\)}\!\(\*
 StyleBox[\"\[Rule]\", \"TI\"]\)\!\(\*SubscriptBox[
 StyleBox[\"r\", \"TI\"], 
 StyleBox[
 RowBox[{\"k\", \"+\", \"1\"}], \"TI\"]]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\),\[Ellipsis],\!\(\*
-StyleBox[\"n\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\[Ellipsis],{\!\(\*
+StyleBox[\"n\", \"TI\"]\)}\!\(\*
 StyleBox[\"\[Rule]\", \"TI\"]\)\!\(\*SubscriptBox[
 StyleBox[\"r\", \"TI\"], 
 StyleBox[\"n\", \"TI\"]]\)\!\(\*
@@ -1431,14 +1490,17 @@ StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\) is a polynomial with deg(\!\(\*SubscriptBox[
 StyleBox[\"r\", \"TI\"], 
 StyleBox[\"i\", \"TI\"]]\))<deg(\!\(\*
-StyleBox[\"P\", \"TI\"]\)) and PolyLeadingOrder[\!\(\*
-StyleBox[\"Q\", \"TI\"]\)\!\(\*
-StyleBox[\"-\", \"TI\"]\)\[Sum]\!\(\*FractionBox[SubscriptBox[
+StyleBox[\"p\", \"TI\"]\)) and PolyLeadingOrder[\!\(\*
+StyleBox[\"q\", \"TI\"]\)\!\(\*
+StyleBox[\"-\", \"TI\"]\)\!\(\*SubsuperscriptBox[\(\[Sum]\), 
+StyleBox[
+RowBox[{\"i\", \"=\", \"k\"}], \"TI\"], 
+StyleBox[\"n\", \"TI\"]]\)\!\(\*SubscriptBox[
 StyleBox[\"r\", \"TI\"], 
-StyleBox[\"k\", \"TI\"]], SuperscriptBox[
-StyleBox[\"P\", \"TI\"], 
-StyleBox[\"k\", \"TI\"]]]\),\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"i\", \"TI\"]]\)\!\(\*SuperscriptBox[
+StyleBox[\"p\", \"TI\"], 
+StyleBox[\"i\", \"TI\"]]\),\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\),\!\(\*
@@ -1449,7 +1511,7 @@ StyleBox[\"n\", \"TI\"]\)."
 PolySeriesRules[ex_,{x_,den_,o_}]:=Module[{lo,tmp,rem,res={}},
 If[!(RatFuncQ[ex,x]||PolyQ[den,x]),Return[$Failed]];
 lo=PolyLeadingOrder[ex,den,x];
-If[o<lo,Return[{o->0}]];
+If[o<lo,Return[{{o}->0*ex}]];
 tmp=Together[ex/den^lo];
 Do[
 rem=QuolyMod[tmp,den,x];
@@ -1457,8 +1519,35 @@ AppendTo[res,rem];
 tmp=Together[(tmp-rem)/den];
 If[tmp===0,res=PadRight[res,o-lo+1];Break[]]
 ,{i,lo,o}];
-Thread[(lo-1+Range[Length@res])->(res)]
+Thread[List/@(lo-1+Range[Length@res])->(res)]
 ]
+
+
+PolySeriesCoefficient::usage="PolySeriesCoefficient[\!\(\*
+StyleBox[\"q\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),{\!\(\*
+StyleBox[\"x\", \"TI\"]\),\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\),\!\(\*
+StyleBox[\"n\", \"TI\"]\)}] gives the coefficient \!\(\*SubscriptBox[
+StyleBox[\"r\", \"TI\"], 
+StyleBox[\"n\", \"TI\"]]\)\!\(\*
+StyleBox[\"(\", \"TI\"]\)\!\(\*
+StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\")\", \"TI\"]\) in the expansion \!\(\*
+StyleBox[\"q\", \"TI\"]\)\!\(\*
+StyleBox[\"=\", \"TI\"]\)\[Sum]\!\(\*SubscriptBox[
+StyleBox[\"r\", \"TI\"], 
+StyleBox[\"i\", \"TI\"]]\)\!\(\*SuperscriptBox[
+StyleBox[\"p\", \"TI\"], 
+StyleBox[\"i\", \"TI\"]]\)."
+
+
+PolySeriesCoefficient[ex_,{x_,den_,o_}]:=Replace[Cases[PolySeriesRules[ex,{x,den,o}],({o}->c_):>c,1,1],{{c_}:>c,{}->Indeterminate}]
 
 
 SeriesSolutionData::usage="SeriesSolutionData[M,{x,x0,n}] constructs data for generalized power series solution of the system \[PartialD]U=M\[InvisibleComma]U.\nGeneralized form: SeriesSolutionData[M,{x,y(x),n}].\n    \[FilledSmallCircle] M should be rational.\n    \[FilledSmallCircle] M should be Fuchsian at x=x0.\n    \[FilledSmallCircle] Residue A at x=x0 should be free of resonances.\n    \[FilledSmallCircle] SeriesSolutionData returns data U with the asymptotics (x-x0)^A.\nReturned data has the form of a list with each element having the form {\[Lambda],\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\),s,{\!\(\*SubscriptBox[\(T\), \(1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]T\), \(s\)]\)}&,C[\[Lambda],0..\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\)]}.";
@@ -1724,7 +1813,7 @@ ds[[]]
 ]
 
 
-AddNotation::usage="AddNotation[ds,y\[Rule]P(x,y)] adds notation y connected with x via P(x,y)=0.";
+AddNotation::usage="AddNotation[ds,y\[Rule]p(x,y)] adds notation y connected with x via p(x,y)=0.";
 
 
 AddNotation[ds_?DSystemQ,y_Symbol->p_]:=Module[{keys=Keys[ds[]],M,nots=Notations[ds]},
@@ -1743,18 +1832,18 @@ ModNotation::usage="ModNotation[\!\(\*
 StyleBox[\"m\", \"TI\"]\),\!\(\*
 StyleBox[\"y\", \"TI\"]\)\!\(\*
 StyleBox[\"\[Rule]\", \"TI\"]\)\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"y\", \"TI\"]\)\!\(\*
-StyleBox[\",\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"y\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\)] is a shortcut for OQuolyMod[\!\(\*
 StyleBox[\"m\", \"TI\"]\),\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
-StyleBox[\"y\", \"TI\"]\)\!\(\*
-StyleBox[\",\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"y\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\),\!\(\*
 StyleBox[\"y\", \"TI\"]\)]. Should be good for reducing dependence on notations.";
 
@@ -1771,20 +1860,20 @@ todo["Think of removing _RuleDelayed in ModNotation[quoly_,rule:_Rule|_RuleDelay
 RuleToNotation::usage="RuleToNotation[\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\"\[Rule]\", \"TI\"]\)\!\(\*
-StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"q\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"y\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\),\!\(\*
 StyleBox[\"y\", \"TI\"]\)] gives a rule \!\(\*
 StyleBox[\"y\", \"TI\"]\)\!\(\*
 StyleBox[\"\[Rule]\", \"TI\"]\)\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\",\", \"TI\"]\)\!\(\*
 StyleBox[\"y\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\), where \!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\",\", \"TI\"]\)\!\(\*
@@ -1792,7 +1881,7 @@ StyleBox[\"y\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\) is the numerator of \!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\"-\", \"TI\"]\)\!\(\*
-StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"q\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"y\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\).";
@@ -1813,7 +1902,7 @@ Return[$Failed]
 NotationToRule::usage="NotationToRule[\!\(\*
 StyleBox[\"y\", \"TI\"]\)\!\(\*
 StyleBox[\"\[Rule]\", \"TI\"]\)\!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\",\", \"TI\"]\)\!\(\*
@@ -1822,15 +1911,15 @@ StyleBox[\")\", \"TI\"]\),\!\(\*
 StyleBox[\"y\", \"TI\"]\)] gives a rule \!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\"\[Rule]\", \"TI\"]\)\!\(\*
-StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"q\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"y\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\), where \!\(\*
-StyleBox[\"Q\", \"TI\"]\)\!\(\*
+StyleBox[\"q\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"y\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\) is the solution of \!\(\*
-StyleBox[\"P\", \"TI\"]\)\!\(\*
+StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\",\", \"TI\"]\)\!\(\*
@@ -2411,17 +2500,6 @@ Denominators[ex_,pat_:_,excl_:_?NumericQ]:=Sort@DeleteCases[First/@FactorList[De
 
 
 Denominators[as_Assiciation,pat_:_,excl_:_?NumericQ]:=Denominators[Values[as],Alternatives@@Keys[as],_?(FreeQ[#,pat]&)|excl]
-
-
-DenominatorOrder::usage="DenominatorOrder[m|ds,den] tries to define the power of the denominator. Negative values correspond to numerators.";
-
-
-DenominatorOrder[0,den_]:=-\[Infinity];
-DenominatorOrder[ex_,den_]:=Plus@@Cases[FactorList[Denominator@ex],{den,n_}:>n];
-DenominatorOrder[m_List,den_]:=Max[DenominatorOrder[#,den]&/@Flatten[m]];
-
-
-DenominatorOrder[ds_?DSystemQ,den_]:=DenominatorOrder[Values[History[ds][[HistoryIndex[ds],1]]],den]
 
 
 PolesPosition::usage="PolesPosition[\!\(\*
