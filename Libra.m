@@ -67,6 +67,12 @@ res=Flatten[Outer[l,Sequence@@(List/@#//.{pre___,{a:Alternatives@@ar},{b:Alterna
 ]
 
 
+System`TransposeYoungTableau::usage="TransposeYoungTableau[{\!\(\*SubscriptBox[
+StyleBox[\"list\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"list\", \"TI\"], \(2\)]\),\[Ellipsis]}] transposes list of lists of non-increasing lengths.";
+System`TransposeYoungTableau[yt_List]:=Module[{l=Length@First[yt],sq},Replace[Transpose[PadRight[#,l,sq]&/@yt],sq:>Sequence[],{2}]]
+
+
 BeginPackage["Libra`"]
 
 
@@ -93,7 +99,7 @@ DependentColumnIndices;
 OffDiagonalBlocksIndices;DiagonalBlocksIndices;
 
 
-VectorBasis;
+PickBasis;
 
 
 UseFermat::usage="UseFermat is an option for many procedures which determines whether to use Fermat (Fermatica package required)";
@@ -120,6 +126,9 @@ JFormQ;
 JDecomposition;JDecompositionData;
 
 
+JDTowers;JDSpace;JDData;
+
+
 RatFuncQ;PolyQ;
 
 
@@ -138,7 +147,8 @@ PoincareRank;
 DSystemQ;
 
 
-Balance;VisBalancing;(*Libra;*)
+Balance;VisBalancing;
+VisTransformation;
 
 
 A0ToSubspaces;A0A1ToSubspaces;GetSubspaces;Projector;
@@ -190,10 +200,13 @@ PolyLeadingOrder;
 (*PolyLeadingTerm;*)
 
 
-PolyKer;PolyVectorBasis;PolyMatrixRank;PolyInverse;
-PolyEigenvalues;
-PolyEigenspace;PolyProjector;
+PolyKer;PolyPickBasis;PolyMatrixRank;PolyInverse;
+PolyEValues;
+PolyESpace;PolyProjector;
 PolySeriesRules;PolySeriesCoefficient;
+
+
+EValues;ESpace;
 
 
 Begin["`Private`"]
@@ -204,6 +217,7 @@ FCStaticMonitor[code_,msg_String,delay_:0]:=If[$Notebooks,
 Monitor[code,msg,delay],
 WriteString["stdout","\n["<>msg];(WriteString["stdout","]"];#)&[code]
 ];
+FCStaticMonitor[args__]:=Monitor[args];
 
 
 SetAttributes[FCMonitor,{HoldAll}];
@@ -761,10 +775,19 @@ StyleBox[\"x\", \"TI\"]\),False] assumes that \!\(\*
 StyleBox[\"m\", \"TI\"]\) does not need QuolyMod beforehand.";
 
 
-PolyKer[m_?MatrixQ,poly_,x_,mod:(True|False):True]:=PolyVectorBasis[SortBy[polyKer[m,poly,x,mod],Total[Exponent[#,x]]&],poly,x,False]
+PolyKer[m_?MatrixQ,poly_,x_,mod:(True|False):True]:=PolyPickBasis[SortBy[polyKer[m,poly,x,mod],Total[Exponent[#,x]]&],poly,x,False]
 
 
-PolyVectorBasis::usage="PolyVectorBasis[\!\(\*
+polyKer[m_,poly_,x_,mod:(True|False):True]:=Module[{k=Exponent[poly,x],n=Dimensions[m][[2]],id,mr,xm,evs},
+If[mod,mr=QuolyMod[m,poly,x],mr=m];
+mr=id[Coefficient[mr,x,#]]&/@Range[0,k-1];
+xm=CoefficientList[poly,x];(*action of x as a matrix from the right*)
+xm=Append[Rest[IdentityMatrix[k]],-Most[xm]/Last[xm]];
+evs=Factor[(x^Range[0,k-1]).Partition[#,n]]&/@NullSpace[ArrayFlatten[Transpose@NestList[Dot[#1,xm]&,mr,k-1]/.id->Identity]]
+]
+
+
+PolyPickBasis::usage="PolyPickBasis[\!\(\*
 StyleBox[\"{\", \"TI\"]\)\!\(\*
 StyleBox[SubscriptBox[
 StyleBox[\"u\", \"TI\"], \"1\"], \"TI\"]\)\!\(\*
@@ -797,7 +820,7 @@ StyleBox[\"p\", \"TI\"]\) where \!\(\*
 StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
-StyleBox[\")\", \"TI\"]\) is an irreducible polynomial.\PolyVectorBasis[\!\(\*
+StyleBox[\")\", \"TI\"]\) is an irreducible polynomial. The order does not change and the left-most positions are preferable.\nPolyPickBasis[\!\(\*
 StyleBox[\"{\", \"TI\"]\)\!\(\*
 StyleBox[SubscriptBox[
 StyleBox[\"u\", \"TI\"], \"1\"], \"TI\"]\)\!\(\*
@@ -823,18 +846,9 @@ StyleBox[\"\[Ellipsis]\", \"TI\"]\)\!\(\*
 StyleBox[\"}\", \"TI\"]\) does not need QuolyMod beforehand."
 
 
-PolyVectorBasis[evs_,poly_,x_,mod:(True|False):True]:=Module[{basis={},basis1},
+PolyPickBasis[evs_,poly_,x_,mod:(True|False):True]:=Module[{basis={},basis1},
 Scan[(basis1=Append[basis,#];If[polyKer[Transpose@basis1,poly,x,mod]==={},basis=basis1])&,evs];
 basis
-]
-
-
-polyKer[m_,poly_,x_,mod:(True|False):True]:=Module[{k=Exponent[poly,x],n=Dimensions[m][[2]],id,mr,xm,evs},
-If[mod,mr=QuolyMod[m,poly,x],mr=m];
-mr=id[Coefficient[mr,x,#]]&/@Range[0,k-1];
-xm=CoefficientList[poly,x];(*action of x as a matrix from the right*)
-xm=Append[Rest[IdentityMatrix[k]],-Most[xm]/Last[xm]];
-evs=Factor[(x^Range[0,k-1]).Partition[#,n]]&/@NullSpace[ArrayFlatten[Transpose@NestList[Dot[#1,xm]&,mr,k-1]/.id->Identity]]
 ]
 
 
@@ -888,14 +902,13 @@ StyleBox[\"m\", \"TI\"]\) does not need QuolyMod beforehand.";
 PolyInverse[m_?SquareMatrixQ,poly_,x_,mod:(True|False):True]:=Module[{m1},If[mod,m1=QuolyMod[m,poly,x],m1=m];m1=QuolyMod[OInverse[m1],poly,x]]
 
 
-PolyEigenvalues::usage="PolyEigenvalues[\!\(\*
+PolyEValues::usage="PolyEValues[\!\(\*
 StyleBox[\"m\", \"TI\"]\),\!\(\*
 StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\),\!\(\*
-StyleBox[\"x\", \"TI\"]\),\!\(\*
-StyleBox[\"\[Lambda]\", \"TI\"]\)] gives eigenvalues for the matrix \!\(\*
+StyleBox[\"x\", \"TI\"]\)] gives a list of the eigenvalues of the square matrix \!\(\*
 StyleBox[\"m\", \"TI\"]\) with entries in the field \!\(\*
 StyleBox[\"Q\", \"TI\"]\)\!\(\*
 StyleBox[\"[\", \"TI\"]\)\!\(\*
@@ -918,25 +931,36 @@ StyleBox[\"=\", \"TI\"]\)\!\(\*
 StyleBox[\"0\", \"TI\"]\)(mod \!\(\*
 StyleBox[\"p\", \"TI\"]\)) provided that this root is independent of \!\(\*
 StyleBox[\"x\", \"TI\"]\).";
-PolyEigenvalues::error="Can not determine eigenvalues. Aborting...";
+PolyEValues::error="Can not determine eigenvalues. Aborting...";
 
 
-PolyEigenvalues[m_,poly_,x_Symbol]:=Module[
+PolyEValues[m_,poly_,x_Symbol]:=Module[
 {chpoly,a},
 chpoly=Factor@QuolyMod[CharacteristicPolynomial[m,a]/.a->a D[poly,x],poly,x];
-If[Not[FreeQ[chpoly,x]],Message[PolyEigenvalues::error];Abort[]];
+Replace[a,#]&/@Flatten[Replace[Factors@chpoly,{_?(FreeQ[#,a]&):>Sequence[],{p_?(FreeQ[#,x]&),n_}:>ConstantArray[Solve[p==0,a],n],_:>(Message[PolyEValues::error];Abort[])},{1}]]
+]
+
+
+EValues::usage="EValues[\!\(\*
+StyleBox[\"m\", \"TI\"]\)] gives a list of the eigenvalues of the square matrix \!\(\*
+StyleBox[\"m\", \"TI\"]\). Supposed to be faster than native Eigenvalues";
+
+
+EValues[m_]:=Module[
+{chpoly,a},
+chpoly=Factor@CharacteristicPolynomial[m,a];
 Replace[a,#]&/@Flatten[Replace[Factors@chpoly,{_?(FreeQ[#,a]&):>Sequence[],{p_,n_}:>ConstantArray[Solve[p==0,a],n]},{1}]]
 ]
 
 
-PolyEigenspace::usage="PolyEigenvalues[\!\(\*
+PolyESpace::usage="PolyESpace[\!\(\*
 StyleBox[\"m\", \"TI\"]\),\!\(\*
 StyleBox[\"p\", \"TI\"]\)\!\(\*
 StyleBox[\"(\", \"TI\"]\)\!\(\*
 StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\),\!\(\*
 StyleBox[\"x\", \"TI\"]\),\!\(\*
-StyleBox[\"\[Lambda]\", \"TI\"]\)] gives the eigenvectors {\!\(\*SubscriptBox[
+StyleBox[\"\[Lambda]\", \"TI\"]\)] gives a list of the eigenvectors {\!\(\*SubscriptBox[
 StyleBox[\"u\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
 StyleBox[\"u\", \"TI\"], \(2\)]\),\[Ellipsis]} corresponding to the eigenvalue \!\(\*
 StyleBox[\"\[Lambda]\", \"TI\"]\). Each \!\(\*
@@ -952,17 +976,36 @@ StyleBox[\"0\", \"TI\"]\)(mod \!\(\*
 StyleBox[\"p\", \"TI\"]\))."
 
 
-PolyEigenspace[m_?SquareMatrixQ,poly_,x_,\[Lambda]_]:=PolyKer[m-\[Lambda] IdentityMatrix[Length@m] D[poly,x],poly,x]
+PolyESpace[m_?SquareMatrixQ,poly_,x_,\[Lambda]_]:=PolyKer[m-\[Lambda] IdentityMatrix[Length@m] D[poly,x],poly,x]
 
 
-PolyEigenspace[m_?SquareMatrixQ,poly_,x_,\[Lambda]s_List]:=Join@@(PolyEigenspace[m,poly,x,#]&/@\[Lambda]s)
+PolyESpace[m_?SquareMatrixQ,poly_,x_,\[Lambda]s_List]:=Join@@(PolyESpace[m,poly,x,#]&/@\[Lambda]s)
 
 
-PolyEigenspace[m_?SquareMatrixQ,poly_,x_,All]:=Join@@(PolyEigenspace[m,poly,x,#]&/@PolyEigenvalues[m,poly,x])
+PolyESpace[m_?SquareMatrixQ,poly_,x_,All]:=Join@@(PolyESpace[m,poly,x,#]&/@DeleteDuplicates[PolyEValues[m,poly,x]])
+PolyESpace[m_?SquareMatrixQ,poly_,x_]:=PolyESpace[m,poly,x,All]
 
 
-done["PolyEigenspace: remove linearly dependent vectors."]
-done["PolyEigenspace: allow for a list of \[Lambda]s."]
+done["PolyESpace: remove linearly dependent vectors."]
+done["PolyESpace: allow for a list of \[Lambda]s."]
+
+
+ESpace::usage="ESpace[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"\[Lambda]\", \"TI\"]\)] gives a list of the eigenvectors {\!\(\*SubscriptBox[
+StyleBox[\"u\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"u\", \"TI\"], \(2\)]\),\[Ellipsis]} corresponding to the eigenvalue \!\(\*
+StyleBox[\"\[Lambda]\", \"TI\"]\)."
+
+
+ESpace[m_?SquareMatrixQ,\[Lambda]_]:=NullSpace[m-\[Lambda] IdentityMatrix[Length@m]]
+
+
+ESpace[m_?SquareMatrixQ,\[Lambda]s_List]:=Join@@(ESpace[m,#]&/@\[Lambda]s)
+
+
+ESpace[m_?SquareMatrixQ,All]:=Join@@(ESpace[m,#]&/@DeleteDuplicates[EValues[m]])
+ESpace[m_?SquareMatrixQ]:=ESpace[m,All]
 
 
 PolyProjector::usage="PolyProjector[\!\(\*
@@ -1012,11 +1055,60 @@ QuolyMod[ODot[ut,md,v],poly,x]
 ]
 
 
-VectorBasis::usage="VectorBasis[{v1,v2,...}] constructs basis in linear span of vectors v1,v2,\[Ellipsis]. Basically, it removes all dependent vectors from the given list.";
+PickBasis::usage="PickBasis[{v1,v2,...}] constructs basis in linear span of vectors v1,v2,\[Ellipsis]. Basically, it removes all dependent vectors from the given list.";
 
 
-VectorBasis[vectors:{__List}]:=Module[{r=0,basis={},rrbasis={}},
+PickBasis[vectors:{__List}]:=Module[{r=0,basis={},rrbasis={}},
 Scan[(If[MatrixRank[AppendTo[basis,#]]>r,r++,basis=Most[basis]])&,vectors];basis
+]
+
+
+JDTowers[r_]:=Flatten[JDTowers[r,#]&/@DeleteDuplicates@EValues[r],1];
+JDTowers[r_,All]:=Flatten[JDTowers[r,#]&/@DeleteDuplicates@EValues[r],1];
+JDTowers[r_?SquareMatrixQ,evs_List]:=Flatten[JDTowers[r,#]&/@evs,1];
+JDTowers[r_?SquareMatrixQ,ev_]:=Module[{vecs,vecs1,vecs2,l=Length[r],m,k=0,plist={},ns,rlist={}},
+m=r-IdentityMatrix[l]*ev;
+vecs=NullSpace[m];
+While[Length[vecs]>k,
+AppendTo[plist,Length[vecs]-k];
+k=Length@vecs;
+vecs1=If[(ns=NullSpace[vecs])==={},IdentityMatrix[l],SortBy[NullSpace[ODot[ns,m]],ByteCount]];
+Scan[(vecs2=Append[vecs,#];If[MatrixRank[vecs2]===Length[vecs2],vecs=vecs2;])&,vecs1]
+];
+If[plist==={},Return[{}]];
+rlist=PartitionByLengths[vecs,plist];
+Do[rlist[[i]]=Join[ODot[rlist[[i+1]],Transpose@m],rlist[[i]]],{i,Length@rlist-1,1,-1}];
+rlist=PartitionByLengths[PickBasis[Flatten[rlist,1]],plist];
+TransposeYoungTableau[rlist]
+]
+
+
+JDSpace[r_?SquareMatrixQ,a___]:=Flatten[JDTowers[r,a],1]
+
+
+JDData::usage="JDData[\!\(\*
+StyleBox[\"m\", \"TI\"]\)] gives data for the Jordan decomposition of a square matrix \!\(\*
+StyleBox[\"m\", \"TI\"]\). The result has a form {{\!\(\*
+StyleBox[\"\[Lambda]\", \"TI\"]\),\!\(\*
+StyleBox[\"ulist\", \"TI\"]\),\!\(\*
+StyleBox[\"vlist\", \"TI\"]\)},...} where each element corresponds to Jordan cell with the eigenvalue \!\(\*
+StyleBox[\"\[Lambda]\", \"TI\"]\) , \!\(\*
+StyleBox[\"ulist\", \"TI\"]\) being a Jordan chain vectors, starting from the eigenvectors, and \!\(\*
+StyleBox[\"vlist\", \"TI\"]\) being the same for transposed matrix. Note that dual bases are \!\(\*
+StyleBox[\"ulist\", \"TI\"]\) and Reverse[\!\(\*
+StyleBox[\"vlist\", \"TI\"]\)].";
+
+
+JDData[m_?SquareMatrixQ]:=Module[{
+evs=DeleteDuplicates@EValues[m],
+us,
+vs
+},
+us=JDTowers[m,#]&/@evs;
+evs=Flatten[MapThread[ConstantArray,{evs,Length/@us}],1];
+us=Flatten[us,1];
+vs=Factor[Reverse/@PartitionByLengths[Inverse[Transpose[Flatten[us,1]]],Length/@us]];
+Transpose[{evs,us,vs}]
 ]
 
 
@@ -1949,7 +2041,7 @@ Options[A0ToSubspaces]={All->False};
 
 
 A0ToSubspaces[A0_?SquareMatrixQ,rules_,side:(Left|Right):Left,OptionsPattern[]]:=Module[{l=Length@A0,jdata,sel=Select},
-jdata={Factor[#1]/.rules,##2}&@@@JDecompositionData@A0;
+jdata={Factor[#1]/.rules,##2}&@@@JDData@A0;
 (*Pick suitable evs*)
 If[TrueQ[OptionValue[All]],sel=#&];
 If[side===Right,
@@ -1957,6 +2049,12 @@ SortBy[sel[jdata,TrueQ[Positive[First@#]]&],-First[#]&][[All,3]],
 SortBy[sel[jdata,TrueQ[Negative[First@#]]&],First][[All,2]]
 ]
 ]
+
+
+todo["Eliminate JDData from A0ToSubspaces."];
+
+
+todo["Write PolyA0ToSubspaces."]
 
 
 A0A1ToSubspaces::usage="A0A1ToSubspaces[{A0,A1},Left|Right] gives the subspaces which may be used for the construction of the projectors for the balances.";
@@ -2071,33 +2169,27 @@ StyleBox[\"\[DoubleStruckCapitalP]\", \"TI\"]\).";
 Balance::notprojector="Warning: `1` is not a projector. Returning identity matrix";
 
 
-Balance[p_,{x_,x1_,\[Infinity]}]:=Module[{cs=Table[Unique[],Evaluate[Sequence@@List/@Dimensions[p]]],pcs,c},
-pcs=Plus@@Flatten[cs*p];If[pcs===0,Return[IdentityMatrix@Length@p]];
-c=Factor[Plus@@Flatten[cs*ODot[p,p]]/pcs];
-If[Not[FreeQ[c,Alternatives@@cs]],Message[Balance::notprojector,p];Return[IdentityMatrix@Length@p]];
-Return[Factor[IdentityMatrix@Length@p-p/c]+p 1/(x-x1)]
+Balance[p_,{x_,x1_,\[Infinity]}]:=Module[{c},
+Check[{c}=LinearSolve[List/@Flatten[p],Flatten@ODot[p,p]],Message[Balance::notprojector,p];Return[IdentityMatrix@Length@p]];Return[Factor[IdentityMatrix@Length@p-p/c]+p 1/(x-x1)]
 ]
 
 
-Balance[p_,{x_,\[Infinity],x2_}]:=Module[{cs=Table[Unique[],Evaluate[Sequence@@List/@Dimensions[p]]],pcs,c},
-pcs=Plus@@Flatten[cs*p];If[pcs===0,Return[IdentityMatrix@Length@p]];
-c=Factor[Plus@@Flatten[cs*ODot[p,p]]/pcs];
-If[Not[FreeQ[c,Alternatives@@cs]],Message[Balance::notprojector,p];Return[IdentityMatrix@Length@p]];
-Return[Factor[IdentityMatrix@Length@p-p/c]+p (x-x2)]
+Balance[p_,{x_,\[Infinity],x2_}]:=Module[{c},
+Check[{c}=LinearSolve[List/@Flatten[p],Flatten@ODot[p,p]],Message[Balance::notprojector,p];Return[IdentityMatrix@Length@p]];Return[Factor[IdentityMatrix@Length@p-p/c]+p (x-x2)]
 ]
 
 
-Balance[p_,{x_,x1_,x2_}]:=Module[{cs=Table[Unique[],Evaluate[Sequence@@List/@Dimensions[p]]],pcs,c},
-pcs=Plus@@Flatten[cs*p];If[pcs===0,Return[IdentityMatrix@Length@p]];
-c=Factor[Plus@@Flatten[cs*ODot[p,p]]/pcs];
-If[Not[FreeQ[c,Alternatives@@cs]],Message[Balance::notprojector,p];Return[IdentityMatrix@Length@p]];
-Return[Factor[IdentityMatrix@Length@p-p/c]+p (x-x2)/(x-x1)]
+Balance[p_,{x_,x1_,x2_}]:=Module[{c},
+Check[{c}=LinearSolve[List/@Flatten[p],Flatten@ODot[p,p]],Message[Balance::notprojector,p];Return[IdentityMatrix@Length@p]];Return[Factor[IdentityMatrix@Length@p-p/c]+p (x-x2)/(x-x1)]
 ]
+
+
+done["Balance as it was before seems to be neither necessary nor effective. Redone."];
 
 
 VisBalancing::usage="VisBalancing[\!\(\*
 StyleBox[\"m\", \"TI\"]\),\!\(\*
-StyleBox[\"x\", \"TI\"]\)] is a visual tool for the balancing.";
+StyleBox[\"x\", \"TI\"]\)] is a visual tool for the balancing. Soon to be obsolete and replaced by VisTransformation.";
 
 
 VisBalancing[ds_,{x_Symbol,poles_},\[Epsilon]_Symbol:Indeterminate]:=VisBalancing[ds[x],x,\[Epsilon],poles]
@@ -2137,8 +2229,10 @@ transformation=IdentityMatrix[n];
 updateInteface=(
 (*forming polesData and indices*)
 polesData=If[poles===All,PolesInfo[m,x],DeleteCases[{#,PoincareRank[m,{x,#}]}&/@poles,{_,_?Negative}]];
+FCStaticMonitor[
 polesData=
-({#1,#2,JDecompositionData@If[#1=!=\[Infinity],SeriesCoefficient[m,{x,#1,-1-#2}],-SeriesCoefficient[m,{x,#1,1-#2}]],If[#2>0,Prepend[#,"M"]&/@Transpose[{(*Transpose/@*)Union@A0A1ToSubspaces[Factor[LeadingSeriesCoefficients[m,{x,#1,1}]],Left],Union@A0A1ToSubspaces[Factor[LeadingSeriesCoefficients[m,{x,#1,1}]],Right]}],{}]}&@@@polesData);
+({#1,#2,(*Modified 07.06.2019*)JDData(*/Modified 07.06.2019*)@If[#1=!=\[Infinity],SeriesCoefficient[m,{x,#1,-1-#2}],-SeriesCoefficient[m,{x,#1,1-#2}]],If[#2>0,Prepend[#,"M"]&/@Transpose[{(*Transpose/@*)Union@A0A1ToSubspaces[Factor[LeadingSeriesCoefficients[m,{x,#1,1}]],Left],Union@A0A1ToSubspaces[Factor[LeadingSeriesCoefficients[m,{x,#1,1}]],Right]}],{}]}&@@@polesData);
+,"Calculating JDData..."];
 indices={};
 Do[
 Do[
@@ -2239,6 +2333,154 @@ DialogInput[Dynamic[buttons(*Refresh[buttons,UpdateInterval\[Rule]1]*)]]
 
 todo["VisBalancing: block simultaneus pressing buttons for nonzero Poincare rank singularities"]
 todo["VisBalancing: for simple poles allow same-line pressing on left and right"]
+
+
+VisTransformation::usage="VisTransformation[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\)] is a visual tool for finding transformation. Soon to replace VisBalancing.";
+
+
+VisTransformation[ds_,{x_Symbol,poles_},\[Epsilon]_Symbol:Indeterminate]:=VisBalancing[ds[x],x,\[Epsilon],poles]
+
+
+VisTransformation[ds_?DSystemQ,x_Symbol,\[Epsilon]_Symbol:Indeterminate,poles:All|{__}:All]:=VisBalancing[ds[x],x,\[Epsilon],poles];
+
+
+VisTransformation[as_Association,x_Symbol,\[Epsilon]_Symbol:Indeterminate,poles:All|{__}:All]:=VisBalancing[as[x],x,\[Epsilon],poles];
+
+
+VisTransformation[matr_?SquareMatrixQ,x_Symbol,\[Epsilon]_Symbol:Indeterminate,poles:All|{__}:All]:=Module[
+(*
+Basic idea: first, find JDecompositionData for all points of the matrix.
+Then construct a graphics control
+*)
+{
+n=Length@matr,
+m=matr,
+polespos,polesData,
+indices,index,
+prevu,prevv,
+psetu,psetv,
+clickedu,clickedv,
+buttons=Grid[{{"Wait"}}],
+us,vs,x1,x2,
+lu,lv,
+gram,applyEnabled,colorMark,
+statusline="Ready",balance,
+transformation,
+updateInteface,
+apply,
+validate,
+continue=True
+},
+transformation=IdentityMatrix[n];
+polespos=Replace[poles,All->PolesPosition[m,x]];
+updateInteface=(
+(*forming polesData and indices*)
+polesData=DeleteCases[{#,PoincareRank[m,{x,#}]}&/@polespos,{_,_?Negative}];
+Libra`Private`FCStaticMonitor[
+polesData=
+({#1,#2,(*Modified 07.06.2019*)JDData(*/Modified 07.06.2019*)@If[#1=!=\[Infinity],SeriesCoefficient[m,{x,#1,-1-#2}],-SeriesCoefficient[m,{x,#1,1-#2}]],If[#2>0,Prepend[#,"M"]&/@Transpose[{(*Transpose/@*)Union@A0A1ToSubspaces[Factor[LeadingSeriesCoefficients[m,{x,#1,1}]],Left],Union@A0A1ToSubspaces[Factor[LeadingSeriesCoefficients[m,{x,#1,1}]],Right]}],{}]}&@@@polesData);
+,"Calculating Jordan decomposition data..."];
+indices={};
+Do[
+Do[
+AppendTo[indices,{i1,i2,{i3},i3==1||prevu(*"allowed to press?" flag*),prevu=Unique["p"](*"pressed?" flag*),i3==1||prevv,prevv=Unique["p"]}],{i2,Length@polesData[[i1,3]]},{i3,Length@polesData[[i1,3,i2,-1]]}
+];
+Do[
+AppendTo[indices,{i1,Length@polesData[[i1,3]]+i2,All,True,Unique["p"],True,Unique["p"]}],{i2,Length@polesData[[i1,4]]}
+]
+,{i1,Length@polesData}];
+polesData={#1,#2,Join[#3,#4]}&@@@polesData;
+(*/forming polesData and indices*)
+(*functions to set variables*)
+psetu=Function[v,(v=#)&]/@indices[[All,5]];psetv=Function[v,(v=#)&]/@indices[[All,7]];
+(*
+write 
+psetu[[i]][True] and psetv[[i]][True] *)(*
+for the naive effect of 
+indices[[i,5]]=True and indices[[i,7]]=True 
+*)
+(*/functions to set variables*)
+(*forming interface*)
+buttons=Grid[{
+{
+Grid[ArrayFlatten[{{
+PadRight[Apply[Button[Switch[#/.\[Epsilon]->0,_?Positive,Style[#,Red],_?Negative,Style[#,Blue],_,#]&@polesData[[#1,3,#2,1]],clickedu[#1,#2,#3],Enabled->Dynamic[#4],Appearance->Dynamic[If[#5,{"FramedPalette","Pressed"},"FramedPalette"]]]&,SplitBy[indices,First],{2}]
+],
+{If[#2>0,Style,#&][Row[{"   ",x,"=",#1,", pr=",#2,"   "}],Bold]}&@@@polesData[[All,{1,2}]],
+PadLeft[Reverse/@Apply[Button[Switch[#/.\[Epsilon]->0,_?Positive,Style[#,Red],_?Negative,Style[#,Blue],_,#]&@polesData[[#1,3,#2,1]],clickedv[#1,#2,#3],Enabled->Dynamic[#6],Appearance->Dynamic[If[#7,{"FramedPalette","Pressed"},"FramedPalette"]]]&,SplitBy[indices,First],{2}]
+]
+}}],Spacings->0,ItemSize->All,Alignment->Center]
+},{
+Button["Apply balance transformation",DialogReturn[],Enabled->Dynamic[applyEnabled],Background->Dynamic[colorMark]]
+},
+{
+Button["Paste overall transformation",continue=False;DialogReturn[];]
+},
+{
+Dynamic[statusline]
+}
+},Alignment->Center];
+(*/forming interface*)
+(*unsetting buttons*)
+Through[psetu[False]];
+Through[psetv[False]];
+(*/unsetting buttons*)
+validate[];
+DialogInput[buttons];
+)&;
+apply=(Libra`Private`FCMonitor[
+applyEnabled=False;
+colorMark=Magenta;
+(*apply transformation*)
+statusline="Constructing balance...";
+balance=Balance[Projector[(*Transpose@*)us,vs],{x,x1,x2}];
+statusline=statusline<>"\nCalculating overall transformation...";
+transformation=ODot[transformation,balance];
+statusline=statusline<>"\nApplying transformation...";
+m=Transform[m,balance,x];,
+statusline]
+)&;
+validate=(
+(*pick right and left vectors*)
+us=vs={};
+(
+If[#5,us=Join[us,polesData[[#1,3,#2,2,#3]]];x1=polesData[[#1,1]]];If[#7,vs=Join[vs,polesData[[#1,3,#2,3,#3]]];x2=polesData[[#1,1]]])&@@@indices;
+gram=Outer[ODot,us,vs,1];
+lu=Length@us;lv=Length@vs;
+applyEnabled=(lu+lv>0&&lu==lv&&lv==MatrixRank[gram]);
+colorMark=If[lu==0||lv==0||MatrixRank[gram]==lu,If[applyEnabled,Green,Automatic],Red];
+statusline=ToString[lu]<>"-dimensional u-space and "<>ToString[lv]<>"-dimensional v-space";
+)&;
+
+clickedu=(
+{{index}}=Position[indices,{#1,#2,#3,__},{1},1];
+If[indices[[index,5]],
+psetu[[#]][False]&/@Flatten[Position[indices,{#1,#2,{k_}/;k>= First[#3],__},{1}]],
+psetu[[#]][False]&/@Flatten[Position[indices,{k_,__}/;k!= #1,{1}]];
+psetv[[#]][False]&/@Flatten[Position[indices,{#1,__} ,{1}]];
+psetu[[index]][True];
+];
+validate[];
+)&;
+clickedv=(
+{{index}}=Position[indices,{#1,#2,#3,__},{1},1];
+If[indices[[index,7]],
+psetv[[#]][False]&/@Flatten[Position[indices,{#1,#2,{k_}/;k>= First[#3],__},{1}]],
+psetv[[#]][False]&/@Flatten[Position[indices,{k_,__}/;k!= #1,{1}]];
+psetu[[#]][False]&/@Flatten[Position[indices,{#1,__},{1}]];
+psetv[[index]][True];
+];
+validate[];
+)&;
+updateInteface[];
+While[continue,
+apply[];
+updateInteface[];
+];
+transformation
+]
 
 
 FactorOut::usage="FactorOut[m,x,\[Epsilon],\[Mu]] returns a transformation which reduces m to a factorized form.";
