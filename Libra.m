@@ -209,6 +209,9 @@ PolySeriesRules;PolySeriesCoefficient;
 EValues;ESpace;
 
 
+ PolyJDTowers;PolyJDSpace;
+
+
 Begin["`Private`"]
 
 
@@ -943,7 +946,7 @@ Replace[a,#]&/@Flatten[Replace[Factors@chpoly,{_?(FreeQ[#,a]&):>Sequence[],{p_?(
 
 EValues::usage="EValues[\!\(\*
 StyleBox[\"m\", \"TI\"]\)] gives a list of the eigenvalues of the square matrix \!\(\*
-StyleBox[\"m\", \"TI\"]\). Supposed to be faster than native Eigenvalues";
+StyleBox[\"m\", \"TI\"]\). Supposed to be faster than native Eigenvalues.";
 
 
 EValues[m_]:=Module[
@@ -1066,7 +1069,7 @@ Scan[(If[MatrixRank[AppendTo[basis,#]]>r,r++,basis=Most[basis]])&,vectors];basis
 JDTowers[r_]:=Flatten[JDTowers[r,#]&/@DeleteDuplicates@EValues[r],1];
 JDTowers[r_,All]:=Flatten[JDTowers[r,#]&/@DeleteDuplicates@EValues[r],1];
 JDTowers[r_?SquareMatrixQ,evs_List]:=Flatten[JDTowers[r,#]&/@evs,1];
-JDTowers[r_?SquareMatrixQ,ev_]:=Module[{vecs,vecs1,vecs2,l=Length[r],m,k=0,plist={},ns,rlist={}},
+JDTowers[r_?SquareMatrixQ,ev_]:=Module[{vecs,vecs1,vecs2,l=Length[r],m,k=0,ns,plist={},rlist},
 m=r-IdentityMatrix[l]*ev;
 vecs=NullSpace[m];
 While[Length[vecs]>k,
@@ -1084,6 +1087,32 @@ TransposeYoungTableau[rlist]
 
 
 JDSpace[r_?SquareMatrixQ,a___]:=Flatten[JDTowers[r,a],1]
+
+
+todo["Write JDTowers::usage"]
+
+
+PolyJDTowers[r_,poly_,x_]:=Flatten[PolyJDTowers[r,poly,x,#]&/@DeleteDuplicates@EValues[r],1];
+PolyJDTowers[r_,poly_,x_,All]:=Flatten[PolyJDTowers[r,poly,x,#]&/@DeleteDuplicates@EValues[r],1];
+PolyJDTowers[r_?SquareMatrixQ,poly_,x_,evs_List]:=Flatten[PolyJDTowers[r,poly,x,#]&/@evs,1];
+PolyJDTowers[r_?SquareMatrixQ,poly_,x_,ev_]:=Module[{vecs,vecs1,vecs2,l=Length[r],m,k=0,ns,plist={},rlist},
+m=OQuolyMod[r,poly,x]-IdentityMatrix[l]*ev*D[poly,x];
+vecs=PolyKer[m,poly,x];
+While[Length[vecs]>k,
+AppendTo[plist,Length[vecs]-k];
+k=Length@vecs;
+vecs1=If[(ns=PolyKer[vecs,poly,x])==={},IdentityMatrix[l],SortBy[PolyKer[ODot[ns,m],poly,x],ByteCount]];
+Scan[(vecs2=Append[vecs,#];If[PolyMatrixRank[vecs2,poly,x]===Length[vecs2],vecs=vecs2;])&,vecs1]
+];
+If[plist==={},Return[{}]];
+rlist=PartitionByLengths[vecs,plist];
+Do[rlist[[i]]=Join[OQuolyMod[ODot[rlist[[i+1]],Transpose@m],poly,x],rlist[[i]]],{i,Length@rlist-1,1,-1}];
+rlist=PartitionByLengths[PolyPickBasis[Flatten[rlist,1]],plist];
+TransposeYoungTableau[rlist]
+]
+
+
+PolyJDSpace[r_?SquareMatrixQ,a___]:=Flatten[PolyJDTowers[r,a],1]
 
 
 JDData::usage="JDData[\!\(\*
@@ -1840,7 +1869,7 @@ Transform::notinv="The two matrices are not reciprocal to each other. Aborting..
 Transform::range="Something wrong with application range `1`. Aborting...";
 
 
-Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,opts:OptionsPattern[]]:=Module[{ti=OInverse@t},
+Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,opts:OptionsPattern[]]:=Module[{ti=OInverse[t,UseFermat->OptionValue[UseFermat]]},
 transform[m,t,ti,OptionValue[UseFermat]] 
 ];
 Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False}]:=If[checked||Factor[ti.t]===IdentityMatrix[Length@t],
@@ -1860,7 +1889,7 @@ SetOptions[D,NonConstants->First/@notas];
 ]
 
 
-Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],opts:OptionsPattern[]]:=Transform[m,{t,OInverse@t,True},{x,notas},i,opts];
+Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],opts:OptionsPattern[]]:=Transform[m,{t,OInverse[t,UseFermat->OptionValue[UseFermat]],True},{x,notas},i,opts];
 Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False},{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],OptionsPattern[]]:=Module[{mt},If[checked||ODot[ti,t]===IdentityMatrix[Length@t],
 mt=transformrange[m,t,ti,x,i,notas/.Association->List,OptionValue[UseFermat]];
 mt,
@@ -2340,13 +2369,13 @@ StyleBox[\"m\", \"TI\"]\),\!\(\*
 StyleBox[\"x\", \"TI\"]\)] is a visual tool for finding transformation. Soon to replace VisBalancing.";
 
 
-VisTransformation[ds_,{x_Symbol,poles_},\[Epsilon]_Symbol:Indeterminate]:=VisBalancing[ds[x],x,\[Epsilon],poles]
+VisTransformation[ds_,{x_Symbol,poles_},\[Epsilon]_Symbol:Indeterminate]:=VisTransformation[ds[x],x,\[Epsilon],poles]
 
 
-VisTransformation[ds_?DSystemQ,x_Symbol,\[Epsilon]_Symbol:Indeterminate,poles:All|{__}:All]:=VisBalancing[ds[x],x,\[Epsilon],poles];
+VisTransformation[ds_?DSystemQ,x_Symbol,\[Epsilon]_Symbol:Indeterminate,poles:All|{__}:All]:=VisTransformation[ds[x],x,\[Epsilon],poles];
 
 
-VisTransformation[as_Association,x_Symbol,\[Epsilon]_Symbol:Indeterminate,poles:All|{__}:All]:=VisBalancing[as[x],x,\[Epsilon],poles];
+VisTransformation[as_Association,x_Symbol,\[Epsilon]_Symbol:Indeterminate,poles:All|{__}:All]:=VisTransformation[as[x],x,\[Epsilon],poles];
 
 
 VisTransformation[matr_?SquareMatrixQ,x_Symbol,\[Epsilon]_Symbol:Indeterminate,poles:All|{__}:All]:=Module[
