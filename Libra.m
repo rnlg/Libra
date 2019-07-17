@@ -74,6 +74,7 @@ Denominators;PolyPoincareRank;DenominatorsInfo;
 DiagonalQ;
 NilpotentQ;
 FuchsianQ;
+EFormQ;
 JFormQ;
 
 
@@ -504,7 +505,10 @@ Options[NewDSystem]={Print->True};
 Notations::usage="Notations[ds] is a list of notations used."
 
 
-Notations[ds_?DSystemQ]:=Association[];
+Notations[ds_?DSystemQ]:={};
+
+
+done["Think of maybe using List over Association for Notations. Easier to copy then."];
 
 
 NewDSystem[ds_,def_Rule,opts:OptionsPattern[]]:=NewDSystem[ds,{def},opts]
@@ -514,7 +518,9 @@ Quiet[Unprotect[ds];Clear[ds]];(*in case ds was defined earlier*)
 Check[
 History[ds]^={};HistoryIndex[ds]^=0;
 DSystemQ[ds]^=True;
-Notations[ds]^=Association[];
+(*Modified 17.07.2019*)(*(*Deleted 17.07.2019*)Notations[ds]^=Association[]No(*/Deleted 17.07.2019*)*)
+Notations[ds]:={};
+(*/Modified 17.07.2019*)
 (*will be used in arguments patterns*)l=Length/@Last/@defs;
 If[!(SameQ@@l),Message[NewDSystem::size]];
 Length[ds]^=First@l;
@@ -1445,7 +1451,7 @@ sf=Collect[#,vars,Together]&;
 CWrite["["<>ToString[l]<>"|"];
 FCMonitor[
 res=Catch[Fold[
-(i++;CWrite["."];Quiet[Check[
+(i++;Which[l-i>10^4,If[Mod[i,10^3]==0,CWrite["M"]],l-i>10^3,If[Mod[i,10^2]==0,CWrite["C"]],l-i>10^2,If[Mod[i,10]==0,CWrite["X"]],True,CWrite["."]];Quiet[Check[
 {sol1}=Quiet[Solve[0==sf[#2/.#1],vars],{Solve::svars}],
 sol1={};If[cnt,Message[GaussSolve::inconsistent],Throw[$Failed]],
 {Set::shape}],{Set::shape}];vars=DeleteCases[vars,Alternatives@@(First/@sol1)];Join[(#1->sf[#2/.sol1])&@@@#1,sol1])&,{},eqs]],
@@ -1483,6 +1489,7 @@ p[ex_,x_]:=If[!(MatchQ[ex,x]||FreeQ[ex,x]),Throw@False];
 
 
 RatFuncQ::usage="RatFuncQ[expr,x] gives True if expr is a rational function of x.\nRatFuncQ[{a,b,...},x] gives True iff RatFuncQ[a,x]&&RatFuncQ[b,x]&&..=True.";
+RatFuncQ[ds_?DSystemQ,x_]:=RatFuncQ[ds[x],x]
 Module[{rf},
 RatFuncQ[expr_,x_]:=Catch[rf[expr,x];True];
 
@@ -1511,8 +1518,22 @@ FuchsianQ::usage="FuchsianQ[\!\(\*
 StyleBox[\"m\", \"TI\"]\),\!\(\*
 StyleBox[\"x\", \"TI\"]\)]  gives True if \!\(\*
 StyleBox[\"m\", \"TI\"]\) has only simple poles in \!\(\*
-StyleBox[\"x\", \"TI\"]\).";FuchsianQ[m_,x_]/;RatFuncQ[m,x]:=MatchQ[DenominatorsInfo[m,x],{{_,_?NonPositive}...}]
+StyleBox[\"x\", \"TI\"]\).\nNB: FuchsianQ may work incorrectly if there are notations.";
+
+
+FuchsianQ[m_,x_]/;RatFuncQ[m,x]:=MatchQ[DenominatorsInfo[m,x],{{_,_?NonPositive}...}]
+
+
 FuchsianQ[_]=False;
+
+
+EFormQ::usage="EFormQ[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"\[Epsilon]\", \"TI\"]\)]  gives True if \!\(\*
+StyleBox[\"m\", \"TI\"]\) is linear in \!\(\*
+StyleBox[\"\[Epsilon]\", \"TI\"]\).";
+EFormQ[ds_?DSystemQ,\[Epsilon]_]:=And@@(FreeQ[Factor[ds[#]/\[Epsilon]],\[Epsilon]]&/@Variables[ds])
+EFormQ[m_,\[Epsilon]_]:=FreeQ[Factor[m/\[Epsilon]],\[Epsilon]]
 
 
 TClosure::usage="TClosure[m_?MatrixQ] calculates transitive closure of the relation given by m.\n  Try\n(MatrixPlot/@{#,TClosure[#]})&[{{1,0,0,0},{1,0,0,0},{0,1,1,1},{0,0,1,0}}]";
@@ -2039,7 +2060,7 @@ p=DeleteCases[First/@p,\[Infinity]];
 op=Plus@@(SeriesCoefficient[M,{x,#,-1}]w[#]&/@p); (*operator*)
 FCMonitor[
 res=NestList[Function[pr,i++;CWrite["."];t=Expand[Dot[op,pr]];Plus@@((Coefficient[t,w[#]]/.{II[{a___},x]:>II[{#,a},x]})&/@p)],IdentityMatrix[Length@M]*II[{},x],n],
-i,"\n"]
+i,0,"\n"]
 ]
 
 
@@ -2178,6 +2199,9 @@ Message[Transform::notinv];Abort[]]
 ];
 
 
+todo["HistoryChop\[Rule]True option in Undo"]
+
+
 transformrange[m_,t_,ti_,x_,Span[1,All],notas:{___Rule}:{},fermat:True|False]:=transform[m,t,ti,x,notas,fermat];
 transformrange[m_,t_,ti_,x_,i_,notas:{___Rule}:{},fermat:True|False]:=Module[{mt=m,jj,ii,l=Length@m},
 ii=Replace[i,{Span[a_Integer,b_Integer]:>Range[Mod[a+l+1,l+1],Mod[b+l+1,l+1]],Span[a_Integer,All]:>Range[Mod[a+l+1,l+1],Length@m]}];
@@ -2205,7 +2229,7 @@ ChangeVar::usage="ChangeVar[ds,{rules},{vars}] changes variable in the matrix.";
 ChangeVar[m_?SquareMatrixQ,x_->xviay_,y_Symbol]:=Factor[m D[xviay,y]/.x->xviay]
 
 
-ChangeVar[ds_?DSystemQ,rs1:_Rule|{__Rule},ys1:_Symbol|_List]:=Module[{keys=Keys[ds[[]]],M,rs=Flatten[{rs1}],ys=Flatten[{ys1}],nkeys=Keys[Notations[ds]]},
+ChangeVar[ds_?DSystemQ,rs1:_Rule|{__Rule},ys1:_Symbol|_List]:=Module[{keys=Keys[ds[[]]],M,rs=Flatten[{rs1}],ys=Flatten[{ys1}],nkeys=First/@(Notations[ds]/.Association->List)},
 M=Association@@(Function[y,y->Plus@@((D[#1/.rs,y]ds[#1]/.rs)&/@keys)]/@ys);
 Unprotect[ds];
 Notations[ds]^=Numerator@Together[Notations[ds]/.rs];
@@ -2216,12 +2240,19 @@ ds[[]]
 ]
 
 
+todo["ChangeVar: insert check if new variable coincides with some notation."]
+
+
+todo["Make a tool, like UnchangeVar, which turns variable to notation."]
+
+
 AddNotation::usage="AddNotation[ds,y\[Rule]p(x,y)] adds notation y connected with x via p(x,y)=0.";
 
 
-AddNotation[ds_?DSystemQ,y_Symbol->p_]:=Module[{keys=Keys[ds[]],M,nots=Notations[ds]},
+AddNotation[ds_?DSystemQ,y_Symbol->p_]:=Module[{keys=Keys[ds[]],M,nots=(Notations[ds]/.Association->List)},
 If[FreeQ[p,y],Message[AddNotation::wrng];Return[$Failed]];
-nots[y]=p;
+(*Modified 17.07.2019*)
+nots=Append[DeleteCases[nots,y->_ ],y->p];(*(*Deleted 17.07.2019*)nots[y]=p;(*/Deleted 17.07.2019*)*)(*/Modified 17.07.2019*)
 Unprotect[ds];
 Notations[ds]^=nots;
 Protect[ds];
@@ -3003,6 +3034,7 @@ ModNotation[FuchsifyBlock[(m/.x2y)*D[x2y[[2]],y],y,{Range[lh],Range[lh+1,lh+ll]}
 
 
 FuchsifyBlock::pr="Diagonal block `1` is not Fuchsian. Aborting...";
+FuchsifyBlock::notas="More that one notation involved. Not implemented yet. Aborting...";
 FuchsifyBlock[m_?MatrixQ,{x_Symbol,notations:_Association|{___Rule}:{}}|x_Symbol,{high_List,low_List}]:=
 Module[
 {all=Join[high,low],lhigh=Length@high,llow=Length@low,densPR,infPR,deg,vars,c,cm,t,p,b,Ah,Al,Bhl,part1,part2,y,x2y,notas},
