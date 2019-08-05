@@ -33,7 +33,7 @@ $LibraInputFileName=$InputFileName;
 NewDSystem;
 
 
-History;HistoryIndex;Undo;Redo;
+History;HistoryIndex;Undo;Redo;HistoryRecall;HistoryForesee;
 HistoryAppend;HistoryAddExtra;HistoryDeleteExtra;HistoryConsolidate;
 HistoryBurn;
 
@@ -311,7 +311,7 @@ History::usage="History[ds] is the central object. It is a list with the element
 HistoryIndex::usage="HistoryIndex[ds] is the current position in the History[ds]";
 
 
-History::first="Undo can not be done. Already at the beginning.";
+History::first="Undo can not be done. Too close to the beginning.";
 
 
 History::last="Redo can not be done. Already at the end.";
@@ -360,21 +360,34 @@ Protect[ds];
 If[OptionValue[Print],Print[Style["Deleted extra(s) "<>StringRiffle[ToString/@extras,","]<>" from current history entry.",Small]]])
 
 
-Undo[ds_?DSystemQ,n_Integer:1]:=If[HistoryIndex[ds]>n,
-Unprotect[ds];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]^=HistoryIndex[ds]-n]<>".",Small]];
+Options[Undo]={HistoryChop->False};
+
+
+Undo[ds_?DSystemQ,n_Integer:1,OptionsPattern[]]:=If[HistoryIndex[ds]>n,
+Unprotect[ds];
+HistoryIndex[ds]^=If[n>=0,HistoryIndex[ds]-n,-n];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]]<>".",Small]];
 Protect[ds];
+If[OptionValue[HistoryChop],HistoryChop[ds]];
 History[ds][[HistoryIndex[ds],1]],Message[History::first]];
 
 
-Undo[ds_?DSystemQ,All]:=(
-Unprotect[ds];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]^=1]<>".",Small]];
-Protect[ds];History[ds][[HistoryIndex[ds],1]])
+Undo[ds_?DSystemQ,All]:=Undo[ds,-1]
 
 
-Redo[ds_?DSystemQ,n_Integer:1]:=If[HistoryIndex[ds]<=Length@History[ds]-n,Unprotect[ds];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]^=HistoryIndex[ds]+n]<>".",Small]];Protect[ds];History[ds][[HistoryIndex[ds],1]],Message[History::last]];
+Redo[ds_?DSystemQ,n_Integer:1]:=If[HistoryIndex[ds]<=Length@History[ds]-n,
+Unprotect[ds];
+HistoryIndex[ds]^=If[n>=0,HistoryIndex[ds]+n,Length@History[ds]+n+1];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]]<>".",Small]];Protect[ds];History[ds][[HistoryIndex[ds],1]],Message[History::last]];
 
 
-Redo[ds_?DSystemQ,All]:=(Unprotect[ds];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]^=Length@History[ds]]<>".",Small]];Protect[ds];History[ds][[HistoryIndex[ds],1]]);
+Redo[ds_?DSystemQ,All]:=Redo[ds,-1]
+
+
+HistoryRecall[ds_?DSystemQ,n_Integer:1,OptionsPattern[]]:=If[HistoryIndex[ds]>n,
+History[ds][[If[n>=0,HistoryIndex[ds]-n,-n],1]],Message[History::first]];
+
+
+HistoryForesee[ds_?DSystemQ,n_Integer:1]:=If[HistoryIndex[ds]<=Length@History[ds]-n,
+History[ds][[If[n>=0,HistoryIndex[ds]+n,Length@History[ds]+n+1],1]],Message[History::last]];
 
 
 HistoryChop::usage="HistoryChop[ds_] chops off forward entries in history. Use before applying HistoryConsolidate.";
@@ -428,6 +441,8 @@ Ti[[ii]]=ODot[tt[[2]],Ti[[ii]]]]
 {i,start+1,end}],
 Overlay[{ProgressIndicator[i,{start,end}],ToString[i-start]<>"/"<>ToString[end-start]},Alignment->Center]];
 CWrite["]"];
+T=Fold[QuolyMod[#,#2]&,T,Notations[ds]];
+If[inv,Ti=Fold[QuolyMod[#,#2]&,Ti,Notations[ds]]];
 If[TrueQ@OptionValue[HistoryAppend],
 If[TrueQ@OptionValue[HistoryChop]||Length@History[ds]<=HistoryIndex[ds],
 HistoryAppend[ds,{val,{Undo,ds,end-start}}];
@@ -3035,7 +3050,7 @@ ModNotation[FuchsifyBlock[(m/.x2y)*D[x2y[[2]],y],y,{Range[lh],Range[lh+1,lh+ll]}
 
 FuchsifyBlock::pr="Diagonal block `1` is not Fuchsian. Aborting...";
 FuchsifyBlock::notas="More that one notation involved. Not implemented yet. Aborting...";
-FuchsifyBlock[m_?MatrixQ,{x_Symbol,notations:_Association|{___Rule}:{}}|x_Symbol,{high_List,low_List}]:=
+FuchsifyBlock[m_?MatrixQ,{x_Symbol,notations:_Association|{___Rule}:{}}|x_Symbol,{high_List,low_List},dens:_List|All:All]:=
 Module[
 {all=Join[high,low],lhigh=Length@high,llow=Length@low,densPR,infPR,deg,vars,c,cm,t,p,b,Ah,Al,Bhl,part1,part2,y,x2y,notas},
 If[{notations}==={},
@@ -3043,6 +3058,7 @@ notas={},
 notas=notations/.Association->List
 ];
 NewDSystem[b,x->m[[all,all]],Print->False];
+Factor[b];
 (*Treat notations*)
 notas=Select[notas,Not[FreeQ[b[x],First[#]]]&];
 If[Length@notas>1,Message[FuchsifyBlock::notas];Abort[]];
@@ -3055,15 +3071,13 @@ y=x
 (*/Treat notations*)
 (*AddNotation[b,#]&/@Flatten[{notas}/.Association\[Rule]List];*)
 (*Check that diagonal blocks are Fuchsian*)
-densPR=DenominatorsInfo[b[[(-llow);;,(-llow);;]],y];
+densPR=Cases[DenominatorsInfo[b[[(-llow);;,(-llow);;]],y],Replace[dens,{a_List:>{Alternatives@@a,_},All->_}]];
 If[MemberQ[Last/@densPR,_?Positive],Message[FuchsifyBlock::pr,low];Abort[]];
-densPR=DenominatorsInfo[b[[;;lhigh,;;lhigh]],y];
+densPR=Cases[DenominatorsInfo[b[[;;lhigh,;;lhigh]],y],Replace[dens,{a_List:>{Alternatives@@a,_},All->_}]];
 If[MemberQ[Last/@densPR,_?Positive],Message[FuchsifyBlock::pr,high];Abort[]];
 (*/Check that diagonal blocks are Fuchsian*)
 (*Extracting Poincare ranks*)
-densPR=DenominatorsInfo[b[[;;lhigh,(-llow);;]],y];(*(*1/y is special: y=\[Infinity]*)
-{infPR}=Cases[densPR,{1/y,r_}\[RuleDelayed]r];Print[infPR];
-densPR=DeleteCases[densPR,{1/y,_}];(*here they are only finite*)*)
+densPR=Cases[DenominatorsInfo[b[[;;lhigh,(-llow);;]],y],Replace[dens,{a_List:>{Alternatives@@a,_},All->_}]];
 Function[{den,pr},
 CWrite["\n"<>ToString[InputForm[den]]<>": ["<>ToString[pr]];
 FCMonitor[
@@ -3080,7 +3094,7 @@ part1=QuolyMod[Ah.cm-cm.Al,den,y];
 part2=QuolyMod[cm*D[den,y],den,y];
 Do[
 Bhl=QuolyMod[Factor[b[y][[;;lhigh,(-llow);;]]den^(p+1)],den,y];
-t[[;;lhigh,(-llow);;]]=cm/den^p/.GaussSolve[Flatten[CoefficientList[Bhl+part1+p*part2,y]],Flatten[vars]];
+t[[;;lhigh,(-llow);;]]=cm/den^p/.GaussSolve[Flatten[CoefficientList[Bhl+part1+p*part2,y]],Flatten[vars]]/.Thread[Flatten[vars]->0];
 Transform[b,t,Print->False]
 ,
 {p,pr,1,-1}],
@@ -3091,7 +3105,7 @@ Ah=SeriesCoefficient[b[y][[;;lhigh,;;lhigh]],{y,\[Infinity],1}];
 Al=SeriesCoefficient[b[y][[(-llow);;,(-llow);;]],{y,\[Infinity],1}];
 Do[
 Bhl=SeriesCoefficient[b[y][[;;lhigh,(-llow);;]],{y,\[Infinity],1-p}];
-t[[;;lhigh,(-llow);;]]=vars*y^p/.GaussSolve[Bhl+Ah.vars-vars.Al-p*vars,Flatten[vars]];
+t[[;;lhigh,(-llow);;]]=vars*y^p/.GaussSolve[Bhl+Ah.vars-vars.Al-p*vars,Flatten[vars]]/.Thread[Flatten[vars]->0];
 Transform[b,t,Print->False]
 ,
 {p,pr,1,-1}]
@@ -3113,11 +3127,11 @@ StyleBox[\"x\", \"TI\"]\)] is supposed to Fuchsify \!\(\*
 StyleBox[\"m\", \"TI\"]\).";
 
 
-Fuchsify[m_?MatrixQ,{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol]:=
+Fuchsify[m_?MatrixQ,{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,dens:_List|All:All]:=
 Module[
 {odi=OffDiagonalBlocksIndices[m,Flatten->False,Sort->Diagonal],m1=m,t,t1},
 t=IdentityMatrix[Length@m];
-Function[{blocks},t1=IdentityMatrix[Length@m1];(t1[[Flatten@#,Flatten@#]]=FuchsifyBlock[m1,{x,notas},#])&/@blocks;
+Function[{blocks},t1=IdentityMatrix[Length@m1];(t1[[Flatten@#,Flatten@#]]=FuchsifyBlock[m1,{x,notas},#,dens])&/@blocks;
 m1=Transform[m1,t1,{x,notas}];
 t=ODot[t,t1];
 ]/@odi;
@@ -3125,7 +3139,7 @@ t
 ]
 
 
-Fuchsify[ds_?DSystemQ,a:({x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol)]:=Fuchsify[ds[x],a]
+Fuchsify[ds_?DSystemQ,a:({x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol),b___]:=Fuchsify[ds[x],a,b]
 
 
 BTSolve::usage="BTSolve[{\!\(\*SubscriptBox[
