@@ -3139,7 +3139,10 @@ t
 ]
 
 
-Fuchsify[ds_?DSystemQ,a:({x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol),b___]:=Fuchsify[ds[x],a,b]
+Fuchsify[ds_?DSystemQ,x_Symbol,b___]:=Fuchsify[ds[x],{x,Notations[ds]},b]
+
+
+todo["Decide what to do when NotationToRule is not possible (many-variate setup, notation is irrelevant to the specified variable)"];
 
 
 BTSolve::usage="BTSolve[{\!\(\*SubscriptBox[
