@@ -34,11 +34,11 @@ NewDSystem;
 
 
 History;HistoryIndex;Undo;Redo;HistoryRecall;HistoryForesee;
-HistoryAppend;HistoryAddExtra;HistoryDeleteExtra;HistoryConsolidate;
+HistoryAppend;HistoryAddExtra;HistoryDeleteExtra;HistoryConsolidate;OverallTransformation;
 HistoryBurn;
 
 
-Notations;AddNotation;
+Notations;AddNotation;DeleteNotation;
 RuleToNotation;NotationToRule
 
 
@@ -57,6 +57,9 @@ UseFermat::usage="UseFermat is an option for many procedures which determines wh
 
 
 ODot;OInverse;ODet;OKer;
+
+
+DiffMod;
 
 
 Transform;ChangeVar;
@@ -331,8 +334,7 @@ HistoryAppend::chop="Did not change history to avoid overwriting forward entries
 
 HistoryAppend[ds_Symbol?DSystemQ,event:{_Association,_List,___},OptionsPattern[]]:=If[
 TrueQ[OptionValue[HistoryChop]||Length[History[ds]]<=HistoryIndex[ds]],
-Unprotect[ds];History[ds]^=Append[Take[History[ds],HistoryIndex[ds]],event];
-HistoryIndex[ds]^=HistoryIndex[ds]+1;Protect[ds];If[OptionValue[Print],Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]]<>".",Small]]],
+unprotect[ds,History[ds]^=Append[Take[History[ds],HistoryIndex[ds]],event];HistoryIndex[ds]^=HistoryIndex[ds]+1];If[OptionValue[Print],Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]]<>".",Small]]],
 Message[HistoryAppend::chop,ds]];
 
 
@@ -343,8 +345,7 @@ Options[HistoryAddExtra]={Print->True};
 
 
 HistoryAddExtra[ds_Symbol?DSystemQ,rules__Rule,OptionsPattern[]]:=(
-Unprotect[ds];History[ds]^=ReplacePart[History[ds],HistoryIndex[ds]->Join[DeleteCases[History[ds][[HistoryIndex[ds]]],Alternatives@@First/@{rules}->_],{rules}]];
-Protect[ds];
+unprotect[ds,History[ds]^=ReplacePart[History[ds],HistoryIndex[ds]->Join[DeleteCases[History[ds][[HistoryIndex[ds]]],Alternatives@@First/@{rules}->_],{rules}]]];
 If[OptionValue[Print],Print[Style["Added extra(s) "<>StringRiffle[ToString/@First/@{rules},","]<>" to current history entry.",Small]]];)
 
 
@@ -355,8 +356,7 @@ Options[HistoryDeleteExtra]={Print->True};
 
 
 HistoryDeleteExtra[ds_Symbol?DSystemQ,extras___,OptionsPattern[]]:=(
-Unprotect[ds];History[ds]^=ReplacePart[History[ds],HistoryIndex[ds]->DeleteCases[History[ds][[HistoryIndex[ds]]],Alternatives@@extras->_]];
-Protect[ds];
+unprotect[ds,History[ds]^=ReplacePart[History[ds],HistoryIndex[ds]->DeleteCases[History[ds][[HistoryIndex[ds]]],Alternatives@@extras->_]]];
 If[OptionValue[Print],Print[Style["Deleted extra(s) "<>StringRiffle[ToString/@extras,","]<>" from current history entry.",Small]]])
 
 
@@ -364,9 +364,7 @@ Options[Undo]={HistoryChop->False};
 
 
 Undo[ds_?DSystemQ,n_Integer:1,OptionsPattern[]]:=If[HistoryIndex[ds]>n,
-Unprotect[ds];
-HistoryIndex[ds]^=If[n>=0,HistoryIndex[ds]-n,-n];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]]<>".",Small]];
-Protect[ds];
+unprotect[ds,HistoryIndex[ds]^=If[n>=0,HistoryIndex[ds]-n,-n];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]]<>".",Small]]];
 If[OptionValue[HistoryChop],HistoryChop[ds]];
 History[ds][[HistoryIndex[ds],1]],Message[History::first]];
 
@@ -375,8 +373,8 @@ Undo[ds_?DSystemQ,All]:=Undo[ds,-1]
 
 
 Redo[ds_?DSystemQ,n_Integer:1]:=If[HistoryIndex[ds]<=Length@History[ds]-n,
-Unprotect[ds];
-HistoryIndex[ds]^=If[n>=0,HistoryIndex[ds]+n,Length@History[ds]+n+1];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]]<>".",Small]];Protect[ds];History[ds][[HistoryIndex[ds],1]],Message[History::last]];
+unprotect[ds,
+HistoryIndex[ds]^=If[n>=0,HistoryIndex[ds]+n,Length@History[ds]+n+1];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]]<>".",Small]]];History[ds][[HistoryIndex[ds],1]],Message[History::last]];
 
 
 Redo[ds_?DSystemQ,All]:=Redo[ds,-1]
@@ -393,17 +391,19 @@ History[ds][[If[n>=0,HistoryIndex[ds]+n,Length@History[ds]+n+1],1]],Message[Hist
 HistoryChop::usage="HistoryChop[ds_] chops off forward entries in history. Use before applying HistoryConsolidate.";
 
 
-HistoryChop[ds_?DSystemQ]:=(Unprotect[ds];History[ds]^=Take[History[ds],HistoryIndex[ds]];Protect[ds];HistoryIndex[ds])
+HistoryChop[ds_?DSystemQ]:=(unprotect[ds,History[ds]^=Take[History[ds],HistoryIndex[ds]]];HistoryIndex[ds])
 
 
-HistoryConsolidate::usage="HistoryConsolidate[ds] consolidates history";
+HistoryConsolidate::usage="HistoryConsolidate[ds] consolidates history. ";
 
 
+HistoryConsolidate::obsolete="HistoryConsolidate is supreceeded by OverallTransformation. The latter returns not only the transformation matrix, but also change of variables and introduced notations.\n\
+NB: HistoryConsolidate[ds] is now OverallTransformation[ds][Transform].";
 HistoryConsolidate::err="Undo history entry is met.";
 HistoryConsolidate::chop="Did not change history to avoid overwriting forward entries. Use HistoryChop[`1`] first."
 
 
-Options[HistoryConsolidate]={HistoryChop->False,HistoryAppend->False,
+Options[HistoryConsolidate]={(*(*Deleted 02.12.2019*)HistoryChop\[Rule]False,HistoryAppend\[Rule]False,(*/Deleted 02.12.2019*)*)
 Inverse->False(*whether to calculate inverse transformation matrix*)
 };
 
@@ -420,16 +420,9 @@ FCMonitor[Do[
 CWrite["."];
 Replace[History[ds][[i,2]],{
 {Transform,ds,tt_?SquareMatrixQ}:>(T=ODot[T,tt];If[inv,Ti=ODot[OInverse[tt],Ti]]),
-{Transform,ds,tt_?SquareMatrixQ,ii_}:>((*Modified 14.05.2019*)(*(*Deleted 14.05.2019*)t=IdentityMatrix[Length@ds];t[[ii,ii]]=tt;T=ODot[T,t];If[inv,Ti=ODot[OInverse[t],Ti]](*/Deleted 14.05.2019*)*)
-(*Added 14.05.2019*)T[[All,ii]]=ODot[T[[All,ii]],tt];If[inv,Ti[[ii]]=ODot[OInverse[tt],Ti[[ii]]]](*/Added 14.05.2019*)
-(*/Modified 14.05.2019*)),
-{Transform,ds,tt:{_?SquareMatrixQ,_?SquareMatrixQ}}:>(T=ODot[T,tt[[1]]];If[inv,Ti=ODot[tt[[2]],Ti]]),
-{Transform,ds,tt:{_?SquareMatrixQ,_?SquareMatrixQ},ii_}:>(
-(*Modified 14.05.2019*)
-T[[All,ii]]=ODot[T[[All,ii]],tt[[1]]];
-If[inv,
-Ti[[ii]]=ODot[tt[[2]],Ti[[ii]]]]
-(*/Modified 14.05.2019*)),
+{Transform,ds,{tt_?SquareMatrixQ,tti_?SquareMatrixQ}}:>(T=ODot[T,tt];If[inv,Ti=ODot[tti,Ti]]),
+{Transform,ds,tt_?SquareMatrixQ,ii_}:>(T[[All,ii]]=ODot[T[[All,ii]],tt];If[inv,Ti[[ii]]=ODot[OInverse[tt],Ti[[ii]]]]),
+{Transform,ds,{tt_?SquareMatrixQ,tti_?SquareMatrixQ},ii_}:>(T[[All,ii]]=ODot[T[[All,ii]],tt];If[inv,Ti[[ii]]=ODot[tti,Ti[[ii]]]]),
 {ChangeVar,ds,tt_,nw_,___}:>(T=Factor[T/.tt];If[inv,Ti=Factor[Ti/.tt]];subs=Factor[subs/.tt];new=nw),
 {Factor,ds}:>(T=Factor[T];If[inv,Ti=Factor[Ti]]),
 {Simplify,ds,tt___}:>(T=Simplify[T,tt];If[inv,Ti=Simplify[Ti,tt]];subs=Simplify[subs,tt]),
@@ -443,16 +436,16 @@ Overlay[{ProgressIndicator[i,{start,end}],ToString[i-start]<>"/"<>ToString[end-s
 CWrite["]"];
 T=Fold[QuolyMod[#,#2]&,T,Notations[ds]];
 If[inv,Ti=Fold[QuolyMod[#,#2]&,Ti,Notations[ds]]];
-If[TrueQ@OptionValue[HistoryAppend],
-If[TrueQ@OptionValue[HistoryChop]||Length@History[ds]<=HistoryIndex[ds],
+(*(*Deleted 02.12.2019*)If[TrueQ@OptionValue[HistoryAppend],
+If[TrueQ@OptionValue[HistoryChop]||Length@History[ds]\[LessEqual]HistoryIndex[ds],
 HistoryAppend[ds,{val,{Undo,ds,end-start}}];
-ChangeVar[ds,Thread[old->subs],new];
+ChangeVar[ds,Thread[old\[Rule]subs],new];
 If[inv,
 Transform[ds,{T,Ti}],
 Transform[ds,T]
 ],
 Message[HistoryConsolidate::chop,ds]
-]];
+]];(*/Deleted 02.12.2019*)*)
 T
 ]
 
@@ -461,6 +454,47 @@ todo["HistoryConsolidate: make the procedure more flexible to allow for replacin
 
 
 todo["Think about better strategy of option UseFermat"];
+
+
+OverallTransformation::usage="OverallTransformation[ds] calculates the overall transformation of the system: the transformation matrix, variables change, and introduced notations. It returns the association with entries Transform (for transformation matrix), ChangeVar (for variables change), and Notations (for introduced notations).";
+
+
+OverallTransformation::err="Undo history entry is met.";
+
+
+Options[OverallTransformation]={Inverse->False};
+
+
+OverallTransformation[ds_?DSystemQ,OptionsPattern[]]:=Module[{T=IdentityMatrix[Length@ds],Ti=IdentityMatrix[Length@ds],i,ii,t,start,end,val,old,new,subs,inv=OptionValue[Inverse]},
+(*First, calculate transformation. We move in history up to the first Undo[ds,All] or first entry*)
+(*starting index: either 1 or index of first full undo*)
+start=Position[Take[History[ds],HistoryIndex[ds]],{_,{Undo,ds,_}|{NewDSystem,ds,__},___},{1}][[-1,1]];
+val=History[ds][[start,1]];
+old=new=subs=Keys[val];
+end=HistoryIndex[ds];
+CWrite["\n["<>ToString[end-start]<>"|"];
+FCMonitor[Do[
+CWrite["."];
+Replace[History[ds][[i,2]],{
+{Transform,ds,tt_?SquareMatrixQ}:>(T=ODot[T,tt];If[inv,Ti=ODot[OInverse[tt],Ti]]),
+{Transform,ds,{tt_?SquareMatrixQ,tti_?SquareMatrixQ}}:>(T=ODot[T,tt];If[inv,Ti=ODot[tti,Ti]]),
+{Transform,ds,tt_?SquareMatrixQ,ii_}:>(T[[All,ii]]=ODot[T[[All,ii]],tt];If[inv,Ti[[ii]]=ODot[OInverse[tt],Ti[[ii]]]]),
+{Transform,ds,{tt_?SquareMatrixQ,tti_?SquareMatrixQ},ii_}:>(T[[All,ii]]=ODot[T[[All,ii]],tt];If[inv,Ti[[ii]]=ODot[tti,Ti[[ii]]]]),
+{ChangeVar,ds,tt_,nw_,___}:>(T=Factor[T/.tt];If[inv,Ti=Factor[Ti/.tt]];subs=Factor[subs/.tt];new=nw),
+{Factor,ds}:>(T=Factor[T];If[inv,Ti=Factor[Ti]]),
+{Simplify,ds,tt___}:>(T=Simplify[T,tt];If[inv,Ti=Simplify[Ti,tt]];subs=Simplify[subs,tt]),
+{Map,f_,ds,tt___}:>(T=Map[f,T,tt];If[inv,Ti=Map[f,Ti,tt]];),
+{MapAt,f_,ds,tt___}:>(T=MapAt[f,T,tt];If[inv,Ti=MapAt[f,Ti,tt]]),
+{Undo,__}:>(Message[HistoryConsolidate::err];Abort[])
+}
+],
+{i,start+1,end}],
+Overlay[{ProgressIndicator[i,{start,end}],ToString[i-start]<>"/"<>ToString[end-start]},Alignment->Center]];
+CWrite["]"];
+T=Fold[QuolyMod[#,#2]&,T,Notations[ds]];
+If[inv,Ti=Fold[QuolyMod[#,#2]&,Ti,Notations[ds]]];
+<|Transform->If[inv,{T,Ti},T],ChangeVar->{old->subs,new},Notations->Notations[ds]|>
+]
 
 
 HistoryCheck::usage="HistoryCheck[ds_] checks history consistency. It simply redoes all transformations and checks whether the same result is obtained.";
@@ -499,10 +533,9 @@ start=Position[History[ds],{_,{Undo,ds,_}|{NewDSystem,ds,__},___},{1}][[-1,1]];
 val=History[ds][[start,1]];
 end=HistoryIndex[ds];
 If[val=!=History[ds][[1,1]],Message[HistoryBurn::err];Return[$Failed]];
-Unprotect[ds];
+unprotect[ds,
 History[ds]^=Prepend[History[ds][[start+1;;end]],History[ds][[1]]];
-HistoryIndex[ds]^=Length@History[ds];
-Protect[ds];
+HistoryIndex[ds]^=Length@History[ds]];
 ]
 
 
@@ -517,13 +550,19 @@ NewDSystem::error="Something went wrong. Aborting...";
 Options[NewDSystem]={Print->True};
 
 
-Notations::usage="Notations[ds] is a list of notations used."
+Notations::usage="Notations[ds] is a list of notations used.\n\
+Notations[ds,{ii,jj}] list of notations met in ds[[ii,jj]]\n\
+Notations[ds,ii] is a shortcut for Notations[ds,{ii,ii}]."
 
 
 Notations[ds_?DSystemQ]:={};
 
 
 done["Think of maybe using List over Association for Notations. Easier to copy then."];
+
+
+Notations[ds_?DSystemQ,ii_:(_List|_Span)]:=Notations[ds,{ii,ii}]
+Notations[ds_?DSystemQ,{ii:(_List|_Span),jj:(_List|_Span)}]:=Module[{ss=ds[[ii,jj]]},Select[Notations[ds],Not[FreeQ[ss,First@#]]&]]
 
 
 NewDSystem[ds_,def_Rule,opts:OptionsPattern[]]:=NewDSystem[ds,{def},opts]
@@ -543,9 +582,7 @@ HistoryAppend[ds,{Association[defs],{NewDSystem,ds,Association[defs]}},Print->Op
 (*ToExpression[#<>"$M:=History["<>#<>"][[HistoryIndex["<>#<>"],1]];Protect["<>#<>"$M]"]&[SymbolName[ds]]*),
 Message[NewDSystem::error];Abort[];
 ];
-Unprotect[ds];
-redefineOperations[ds];
-Protect[ds];
+unprotect[ds,redefineOperations[ds]];
 If[TrueQ@OptionValue[Print],Print["Successfully created differential system for "<>ToString@Length@ds<>" functions of "<>StringRiffle[ToString/@First/@defs,","]<>"."];
 (*Print["Next, you might want to find denominators appearing. See ?Denominators."];*)];
 ds::usage="Differential system for "<>ToString@Length@ds<>" functions of "<>StringJoin@@Riffle[ToString/@First/@defs,","]<>".";
@@ -693,10 +730,11 @@ StyleBox[\"x\", \"TI\"]\)\!\(\*
 StyleBox[\")\", \"TI\"]\).";
 
 
-QuolyMod::wrongargs="Something wrong with the arguments of QuolyMod.";
+QuolyMod[quoly_,poly:Except[_Rule|_List],x_Symbol]:=QuolyMod[quoly,x->poly];
 
 
-QuolyMod[quoly_List,args__]:=QuolyMod[#,args]&/@quoly;QuolyMod[quoly_,poly:Except[_Rule],x_Symbol]:=QuolyMod[quoly,x->poly];
+QuolyMod[quoly_List,args__]:=QuolyMod[#,args]&/@quoly;
+QuolyMod[quoly_,list_List]:=Fold[QuolyMod,quoly,list];
 
 
 QuolyMod[quoly_,x_Symbol->0]:=quoly;
@@ -793,7 +831,7 @@ While[True,
 If[rmndr=!=0,Break[]];
 num=num1;k++;
 ];
-{k,QuolyMod[num/den,poly,x]}
+{k,QuolyMod[num/den,x->poly]}
 ]
 
 
@@ -997,7 +1035,7 @@ KerMod[m_?MatrixQ,x_Symbol,mod:(True|False):True]:=KerMod[m,x->(x/.$LibraNotatio
 
 
 polyKer[m_,poly_,x_,mod:(True|False):True]:=Module[{k=Exponent[poly,x],n=Dimensions[m][[2]],id,mr,xm,evs},
-If[mod,mr=QuolyMod[m,poly,x],mr=m];
+If[mod,mr=QuolyMod[m,x->poly],mr=m];
 mr=id[Coefficient[mr,x,#]]&/@Range[0,k-1];
 xm=CoefficientList[poly,x];(*action of x as a matrix from the right*)
 xm=Append[Rest[IdentityMatrix[k]],-Most[xm]/Last[xm]];
@@ -1063,7 +1101,7 @@ StyleBox[\"m\", \"TI\"]\) does not need QuolyMod beforehand.";
 InverseMod[m_?SquareMatrixQ,x_Symbol->0,mod:(True|False):True]:=OInverse[m]
 
 
-InverseMod[m_?SquareMatrixQ,x_Symbol->poly_,mod:(True|False):True]:=Module[{m1},If[mod,m1=QuolyMod[m,poly,x],m1=m];m1=QuolyMod[OInverse[m1],poly,x]]
+InverseMod[m_?SquareMatrixQ,x_Symbol->poly_,mod:(True|False):True]:=Module[{m1},If[mod,m1=QuolyMod[m,x->poly],m1=m];m1=QuolyMod[OInverse[m1],x->poly]]
 
 
 InverseMod[m_?SquareMatrixQ,x_Symbol,mod:(True|False):True]:=InverseMod[m,x->(x/.$LibraNotations),mod]
@@ -1120,7 +1158,7 @@ EValuesMod[m_,x_Symbol->poly_]:=Module[
 {chpoly,a},
 chpoly=Factor@QuolyMod[(*Modified 08.06.2019*)
 (*(*Deleted 08.06.2019*)CharacteristicPolynomial[m,a]/.a\[Rule]a D[poly,x](*/Deleted 08.06.2019*)*)
-ODet[a*D[poly,x]*IdentityMatrix[Length@m]-m](*/Modified 08.06.2019*),poly,x];
+ODet[a*D[poly,x]*IdentityMatrix[Length@m]-m](*/Modified 08.06.2019*),x->poly];
 Replace[a,#]&/@Flatten[Replace[Factors@chpoly,{_?(FreeQ[#,a]&):>Sequence[],{p_?(FreeQ[#,x]&),n_}:>ConstantArray[Solve[p==0,a],n],_:>(Message[EValuesMod::error];Abort[])},{1}]]
 ]
 
@@ -1723,12 +1761,13 @@ Options[OQuolyMod]={UseFermat->False};
 done["Remove obsolete definitionfor OQuolyMod[quoly_,rule:_Rule|_RuleDelayed]"];
 
 
-OQuolyMod[quoly_,poly:Except[_Rule],x_Symbol,opts:OptionsPattern[]]:=OQuolyMod[quoly,x->poly,opts]
+OQuolyMod[quoly_,poly:Except[_Rule|{___Rule}],x_Symbol,opts:OptionsPattern[]]:=OQuolyMod[quoly,x->poly,opts]
 
 
+OQuolyMod[quoly_,list_List,opts:OptionsPattern[]]:=Fold[OQuolyMod[#1,#2,opts]&,quoly,list];
 OQuolyMod[quoly_,x_Symbol->poly_,OptionsPattern[]]:=If[$LibraUseFermat&&OptionValue[UseFermat],
-Replace[CheckAbort[FQuolyMod[quoly,poly,x],$Failed],$Failed:>(Print["OQuolyMod: resorting to Mathematica\[Ellipsis]"];QuolyMod[quoly,poly,x])],
-QuolyMod[quoly,poly,x]]
+Replace[CheckAbort[FQuolyMod[quoly,poly,x],$Failed],$Failed:>(Print["OQuolyMod: resorting to Mathematica\[Ellipsis]"];QuolyMod[quoly,x->poly])],
+QuolyMod[quoly,x->poly]]
 
 
 FQuolyMod[exs__]:=Fermatica`FQuolyMod[exs](*FCStaticMonitor[Fermatica`FQuolyMod[exs],Style["Executing Fermatica`FQuolyMod...",Tiny],1]*)
@@ -1811,7 +1850,7 @@ FInverse[ex_]:=Fermatica`FInverse[ex](*FCStaticMonitor[Fermatica`FInverse[ex],St
 
 
 Unprotect[Series];
-Series[expr_,{x_,x0_,n_Integer}]/;FreeQ[expr,x]:=expr+SeriesData[x,x0,{},n+1,n+1,1]
+Series[expr_,{x_,x0_,n_Integer}]/;FreeQ[expr,x]:= expr+SeriesData[x,x0,{},n+1,n+1,1];
 Series[expr_List,{x_,x0_,n_Integer}]:=Map[Series[#,{x,x0,n}]&,expr]
 Protect[Series];
 todo["NB: Series redefined!"]
@@ -1946,7 +1985,7 @@ lo=LeadingOrderMod[ex,x->den];
 If[o<lo,Return[{{o}->0*ex}]];
 tmp=Together[ex/den^lo];
 Do[
-rem=QuolyMod[tmp,den,x];
+rem=QuolyMod[tmp,x->den];
 AppendTo[res,rem];
 tmp=Together[(tmp-rem)/den];
 If[tmp===0,res=PadRight[res,o-lo+1];Break[]]
@@ -2121,7 +2160,7 @@ Return[ex]
 
 
 SpotCoefficients::usage="SpotCoefficients[Mf,T,\[Epsilon],{x,y(x),o}] tries to find the coefficients in the asymptotic expansion of the initial integrals which are sufficient for fixing boundary conditions. The output is a list with each element being of the form {y(x),i,\[Alpha],k}. It stands for the coefficient \!\(\*SuperscriptBox[\(y\), \(\[Alpha]\)]\)\!\(\*SuperscriptBox[\(ln\), \(k\)]\)y in i-th integral.";
-SpotCoefficients[Mf_,T_,\[Epsilon]_,{x_,y_,o_}]/;FreeQ[y,x]:=SpotCoefficients[Mf,T,\[Epsilon],{x,y,o}]
+SpotCoefficients[Mf_,T_,\[Epsilon]_,{x_,y_,o_}]/;FreeQ[y,x]:=SpotCoefficients[Mf,T,\[Epsilon],{x,x-y,o}]
 SpotCoefficients[Mf_,T_,\[Epsilon]_,{x_,y_,o_}]:=Module[{rdata,TUr,z,zrule,ii,p,powers,tmp,cs=ConstantArray[0,Length@Mf]},
 zrule=First[Solve[z==y,x]];
 FCMonitor[
@@ -2133,6 +2172,15 @@ Abort[]]]],TUr];cs[[ii]]=MapIndexed[{y,ii[[First[#2]]],Sequence@@#1}&,powers];
 ii];
 cs
 ]
+
+
+DiffMod::usage="DiffMod[ex,x,{y\[Rule]p(x,y),z\[Rule]q(x,z),...}] differentiates with respect to x taking into account the notations {y\[Rule]p(x,y),z\[Rule]q(x,z),...}."
+
+
+DiffMod[ex_,x_Symbol,notas:{__Rule}]:=Internal`InheritedBlock[{D},
+SetOptions[D,NonConstants->First/@notas];
+Fold[OQuolyMod[#1,#2]&,D[ex,x]/.First[Solve[0==D[Last/@notas,x],D[First/@notas,x]]],notas]]
+DiffMod[ex_,x_Symbol,nota_Rule]:=DiffMod[ex,x,{nota}]
 
 
 ToOneDE::usage="ToOneDE[M,x,i] constructs one higher-order differential equation for the i-th master.\nIt returns the list of the coefficients {Subscript[c, 0],Subscript[c, 1],\[Ellipsis],Subscript[c, n]} in front of the consecutive orders of derivatives, so that the equation has the form Subscript[c, 0]f(x)+Subscript[c, 1]f'(x)+\[Ellipsis]+Subscript[c, n]f^(n)(x)=0.";
@@ -2246,12 +2294,9 @@ ChangeVar[m_?SquareMatrixQ,x_->xviay_,y_Symbol]:=Factor[m D[xviay,y]/.x->xviay]
 
 ChangeVar[ds_?DSystemQ,rs1:_Rule|{__Rule},ys1:_Symbol|_List]:=Module[{keys=Keys[ds[[]]],M,rs=Flatten[{rs1}],ys=Flatten[{ys1}],nkeys=First/@(Notations[ds]/.Association->List)},
 M=Association@@(Function[y,y->Plus@@((D[#1/.rs,y]ds[#1]/.rs)&/@keys)]/@ys);
-Unprotect[ds];
-Notations[ds]^=Numerator@Together[Notations[ds]/.rs];
-Protect[ds];
+unprotect[ds,Notations[ds]^=Numerator@Together[Notations[ds]/.rs]];
 HistoryAppend[ds,{M,{ChangeVar,ds,rs,ys}}];
-Protect/@ys;
-ds[[]]
+Protect[ys]
 ]
 
 
@@ -2261,19 +2306,44 @@ todo["ChangeVar: insert check if new variable coincides with some notation."]
 todo["Make a tool, like UnchangeVar, which turns variable to notation."]
 
 
-AddNotation::usage="AddNotation[ds,y\[Rule]p(x,y)] adds notation y connected with x via p(x,y)=0.";
+AddNotation::usage="AddNotation[ds,y\[Rule]p(x,y)] adds notation y connected with x via p(x,y)=0.\n\
+AddNotation[ds,{y\[Rule]p(x,y),z\[Rule]q(x,z),...}] adds several notations.";
+AddNotation::wrng="Notation `1` can not be defined by `2`==0. Aborting...";
+AddNotation::exists="Notation `2` exists. If you really want to modify notation, use first DeleteNotation[`1`,`2`]. Aborting...";
 
 
-AddNotation[ds_?DSystemQ,y_Symbol->p_]:=Module[{keys=Keys[ds[]],M,nots=(Notations[ds]/.Association->List)},
-If[FreeQ[p,y],Message[AddNotation::wrng];Return[$Failed]];
-(*Modified 17.07.2019*)
-nots=Append[DeleteCases[nots,y->_ ],y->p];(*(*Deleted 17.07.2019*)nots[y]=p;(*/Deleted 17.07.2019*)*)(*/Modified 17.07.2019*)
-Unprotect[ds];
-Notations[ds]^=nots;
-Protect[ds];
-HistoryAppend[ds,{ds[],{AddNotation,ds,y->p}}];
-Protect[y];
-ds[[]]
+Options[AddNotation]={HistoryAppend->True}
+
+
+AddNotation[ds_?DSystemQ,rules:{__Rule},OptionsPattern[]]:=Module[{tmp,keys=Keys[ds[]],M,nots=(Notations[ds]/.Association->List)},
+tmp=FreeQ[#2,#1]&@@@rules;
+If[Or@@tmp,Message[AddNotation::wrng,#1,#2]&@@@Pick[rules,tmp];Abort[]];
+tmp=MatchQ[#,Alternatives@@(First/@rules)->_]&/@nots;
+If[Or@@tmp,Message[AddNotation::exists,#1,#2]&@@@Pick[rules,tmp];Abort[]];
+nots=Join[nots,rules];
+Protect/@First/@rules;
+unprotect[ds,Notations[ds]^=nots];
+(*HistoryAppend is necessary for HistoryCheck.*)
+If[TrueQ@OptionValue[HistoryAppend],HistoryAppend[ds,{ds[],{AddNotation,ds,rules}}]];
+First/@rules
+];
+AddNotation[ds_?DSystemQ,rule_Rule,opts:OptionsPattern[]]:=AddNotation[ds,{rule},opts];
+
+
+DeleteNotation::usage="DeleteNotation[ds,y] deletes notation y from Notations[ds] list and returns the deleted notation.\n\
+DeleteNotation[ds,{y,z,\[Ellipsis]}] deletes several notations.";
+DeleteNotation::warn="NB: DeleteNotation may result in history inconsistencies. Use it only if you really know what you do.";
+
+
+DeleteNotation[ds_?DSystemQ,notations:{__Symbol}]:=(Quiet[Flatten[DeleteNotation[ds,#]&/@notations,1],{DeleteNotation::warn}];Message[DeleteNotation::warn]);
+DeleteNotation[ds_?DSystemQ,y_Symbol]:=Module[{keys=Keys[ds[]],M,nots=(Notations[ds]/.Association->List),del},
+Message[DeleteNotation::warn];
+del=Cases[nots,HoldPattern[y->_]];
+If[del==={},Return[{}]];
+nots=DeleteCases[nots,y->_];
+unprotect[ds,Notations[ds]^=nots];
+Unprotect[y];
+Return[del];
 ]
 
 
@@ -3086,14 +3156,14 @@ If[den=!=1/y,
 deg=Exponent[den,y];
 vars=Array[c,{lhigh,llow,deg},{1,1,0}];
 (*Diagonal blocks*)
-Ah=QuolyMod[den*b[y][[;;lhigh,;;lhigh]],den,y];
-Al=QuolyMod[den*b[y][[(-llow);;,(-llow);;]],den,y];
+Ah=QuolyMod[den*b[y][[;;lhigh,;;lhigh]],y->den];
+Al=QuolyMod[den*b[y][[(-llow);;,(-llow);;]],y->den];
 t=IdentityMatrix[lhigh+llow];
 cm=vars.y^Range[0,Exponent[den,y]-1];
-part1=QuolyMod[Ah.cm-cm.Al,den,y];
-part2=QuolyMod[cm*D[den,y],den,y];
+part1=QuolyMod[Ah.cm-cm.Al,y->den];
+part2=QuolyMod[cm*D[den,y],y->den];
 Do[
-Bhl=QuolyMod[Factor[b[y][[;;lhigh,(-llow);;]]den^(p+1)],den,y];
+Bhl=QuolyMod[Factor[b[y][[;;lhigh,(-llow);;]]den^(p+1)],y->den];
 t[[;;lhigh,(-llow);;]]=cm/den^p/.GaussSolve[Flatten[CoefficientList[Bhl+part1+p*part2,y]],Flatten[vars]]/.Thread[Flatten[vars]->0];
 Transform[b,t,Print->False]
 ,
@@ -3114,7 +3184,7 @@ Row[{den,":",p}]
 ];
 CWrite["]"]
 ]@@@densPR;
-t=Fold[QuolyMod,HistoryConsolidate[b,HistoryAppend->False,Inverse->False],notas]
+t=Fold[QuolyMod,HistoryConsolidate[b,Inverse->False],notas]
 ]
 
 
@@ -3347,6 +3417,10 @@ Factors::usage="Factors[expr] returns the list of expr factors not trying to fac
 
 
 Factors[expr_]:=Replace[Replace[{expr},Times->Sequence,{2},Heads->True],{x_^n_Integer:>{x,n},x_:>{x,1}},{1}]
+
+
+SetAttributes[unprotect,{HoldRest}]
+unprotect[s_Symbol,expr_]:=If[MemberQ[Attributes[s],Protected],Unprotect[s];expr;Protect[s],expr]
 
 
 ker[m_?MatrixQ]:=Module[{cs,l=Length@First@m (*# of cols*),cs1,eqs,sol},
