@@ -53,9 +53,6 @@ OffDiagonalBlocksIndices;DiagonalBlocksIndices;
 PickBasis;
 
 
-UseFermat::usage="UseFermat is an option for many procedures which determines whether to use Fermat (Fermatica package required)";
-
-
 ODot;OInverse;ODet;OKer;
 
 
@@ -493,7 +490,7 @@ Overlay[{ProgressIndicator[i,{start,end}],ToString[i-start]<>"/"<>ToString[end-s
 CWrite["]"];
 T=Fold[QuolyMod[#,#2]&,T,Notations[ds]];
 If[inv,Ti=Fold[QuolyMod[#,#2]&,Ti,Notations[ds]]];
-<|Transform->If[inv,{T,Ti},T],ChangeVar->{old->subs,new},Notations->Notations[ds]|>
+<|Transform->If[inv,{T,Ti},T],ChangeVar->{Thread[old->subs],new},Notations->Notations[ds],In->val,Out->ds[]|>
 ]
 
 
@@ -1755,7 +1752,7 @@ $LibraUseFermat/:Set[$LibraUseFermat,val_]:=If[(val===False)||(val===True&&Membe
 OQuolyMod::usage="OQuolyMod[quoly,poly,x] gives the \"remainder\" of the rational function quoly when divided by poly. First capital 'O' stands for 'optimized'.";
 
 
-Options[OQuolyMod]={UseFermat->False};
+Options[OQuolyMod]={Fermatica`UseFermat->False};
 
 
 done["Remove obsolete definitionfor OQuolyMod[quoly_,rule:_Rule|_RuleDelayed]"];
@@ -1765,7 +1762,7 @@ OQuolyMod[quoly_,poly:Except[_Rule|{___Rule}],x_Symbol,opts:OptionsPattern[]]:=O
 
 
 OQuolyMod[quoly_,list_List,opts:OptionsPattern[]]:=Fold[OQuolyMod[#1,#2,opts]&,quoly,list];
-OQuolyMod[quoly_,x_Symbol->poly_,OptionsPattern[]]:=If[$LibraUseFermat&&OptionValue[UseFermat],
+OQuolyMod[quoly_,x_Symbol->poly_,OptionsPattern[]]:=If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],
 Replace[CheckAbort[FQuolyMod[quoly,poly,x],$Failed],$Failed:>(Print["OQuolyMod: resorting to Mathematica\[Ellipsis]"];QuolyMod[quoly,x->poly])],
 QuolyMod[quoly,x->poly]]
 
@@ -1779,10 +1776,10 @@ todo["Make better version of QuolyMod and especially FQuolyMod to deal with seve
 ODot::usage="ODot[m1,m2,...] is an optimized dot product."
 
 
-Options[ODot]={UseFermat->False,Together->True};
+Options[ODot]={Fermatica`UseFermat->False,Together->True};
 
 
-ODot[exs__,OptionsPattern[]]:=If[$LibraUseFermat&&OptionValue[UseFermat],
+ODot[exs__,OptionsPattern[]]:=If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],
 Replace[CheckAbort[FDot[exs],$Failed],$Failed:>(Print["ODot: resorting to Mathematica\[Ellipsis]"];If[OptionValue[Together],Together,Identity]@Dot[exs])],
 If[OptionValue[Together],Together,Identity]@Dot[exs]];
 
@@ -1793,10 +1790,10 @@ FDot[exs__]:=Fermatica`FDot[exs](*FCStaticMonitor[Fermatica`FDot[exs],Style["Exe
 ODet::usage="ODet[m1] is an optimized version of Det."
 
 
-Options[ODet]={UseFermat->False};
+Options[ODet]={Fermtica`UseFermat->False};
 
 
-ODet[m_?SquareMatrixQ,OptionsPattern[]]:=If[$LibraUseFermat&&OptionValue[UseFermat],
+ODet[m_?SquareMatrixQ,OptionsPattern[]]:=If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],
 Replace[CheckAbort[FDet[m],$Failed],$Failed:>(Print["ODet: resorting to Mathematica\[Ellipsis]"];Det[m])],
 Det[m]];
 
@@ -1807,11 +1804,11 @@ FDet[m__]:=Fermatica`FDet[m](*FCStaticMonitor[Fermatica`FDet[m],Style["Executing
 OKer::usage="OKer[m1] is an optimized version of NullSpace."
 
 
-Options[OKer]={UseFermat->False};
+Options[OKer]={Fermatica`UseFermat->False};
 
 
 OKer[m_?MatrixQ,OptionsPattern[]]:=
-Replace[If[$LibraUseFermat&&OptionValue[UseFermat],
+Replace[If[$LibraUseFermat&&OptionValue[Fermtica`UseFermat],
 CheckAbort[FKer[m],Print["ODet: resorting to Mathematica\[Ellipsis]"];ker[m]],
 ker[m]],
 {{0..}}->{}];
@@ -1823,7 +1820,7 @@ FKer[m_]:=Fermatica`FKer[m](*FCStaticMonitor[Fermatica`FKer[m],Style["Executing 
 OInverse::usage="OInverse[m] is an optimized version of Inverse[m] for block-triangular matrices.";
 
 
-Options[OInverse]={Print->False,UseFermat->False};
+Options[OInverse]={Print->False,Fermatica`UseFermat->False};
 
 
 OInverse[m_?SquareMatrixQ,OptionsPattern[]]:=Module[{s=TClosure[m],print=TrueQ@OptionValue[Print],diag,dep,mi=IdentityMatrix[Length@m],stat=""},
@@ -1834,7 +1831,7 @@ If[print,CWrite["\n"];CWrite[stat]];
 diag=EntangledBlocksIndices[s,True];
 (stat="Inverting diagonal elements with indices "<>ToString[#];
 If[print,CWrite["\n"];CWrite[stat]];
-mi[[#,#]]=If[$LibraUseFermat&&OptionValue[UseFermat],
+mi[[#,#]]=If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],
 Replace[CheckAbort[FInverse[#],$Failed],$Failed:>(Print["Inverse: resorting to Mathematica\[Ellipsis]"];Together[Inverse[#]])],
 Together[Inverse[#]]]&@m[[#,#]])&/@diag;
 (dep=Complement[DependentRowIndices[s,#,True],#];stat="Inverting off-diagonal elements "<>ToString[dep]<>" on rows "<>ToString[#];
@@ -2227,36 +2224,36 @@ StyleBox[\"ds\", \"TI\"]\),\!\(\*
 StyleBox[\"t\", \"TI\",\nFontSize->12]\)] transforms the differential system.";
 
 
-Options[Transform]={Simplify->Factor,Print->True,UseFermat->False};
+Options[Transform]={Simplify->Factor,Print->True,Fermatica`UseFermat->False};
 
 
 Transform::notinv="The two matrices are not reciprocal to each other. Aborting...";
 Transform::range="Something wrong with application range `1`. Aborting...";
 
 
-Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,opts:OptionsPattern[]]:=Module[{ti=OInverse[t,UseFermat->OptionValue[UseFermat]]},
-transform[m,t,ti,OptionValue[UseFermat]] 
+Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,opts:OptionsPattern[]]:=Module[{ti=OInverse[t,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]]},
+transform[m,t,ti,OptionValue[Fermatica`UseFermat]] 
 ];
 Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False}]:=If[checked||Factor[ti.t]===IdentityMatrix[Length@t],
-transform[m,t,ti,OptionValue[UseFermat]],
+transform[m,t,ti,OptionValue[Fermatica`UseFermat]],
 Message[Transform::notinv];Abort[]]; 
 
 
 
-transform[m_,t_,ti_,fermat:True|False]:=ODot[ti,ODot[m,t,UseFermat->fermat],UseFermat->fermat];
-transform[m_,t_,ti_,x_,fermat:True|False]:=ODot[ti,ODot[m,t,UseFermat->fermat]-D[t,x],UseFermat->fermat];
-transform[m_,t_,ti_,x_,{},fermat:True|False]:=ODot[ti,ODot[m,t,UseFermat->fermat]-D[t,x],UseFermat->fermat];
+transform[m_,t_,ti_,fermat:True|False]:=ODot[ti,ODot[m,t,Fermatica`UseFermat->fermat],Fermatica`UseFermat->fermat];
+transform[m_,t_,ti_,x_,fermat:True|False]:=ODot[ti,ODot[m,t,Fermatica`UseFermat->fermat]-D[t,x],Fermatica`UseFermat->fermat];
+transform[m_,t_,ti_,x_,{},fermat:True|False]:=ODot[ti,ODot[m,t,Fermatica`UseFermat->fermat]-D[t,x],Fermatica`UseFermat->fermat];
 
 
 transform[m_,t_,ti_,x_,notas:{__Rule},fermat:True|False]:=Internal`InheritedBlock[{D},
 SetOptions[D,NonConstants->First/@notas];
-(*Modified 18.05.2019*)Fold[OQuolyMod[#1,#2,UseFermat->fermat]&,ODot[ti,ODot[m,t,UseFermat->fermat]-(D[t,x]/.First[Solve[0==D[Last/@notas,x],D[First/@notas,x]]]),UseFermat->fermat],notas](*/Modified 18.05.2019*)
+(*Modified 18.05.2019*)Fold[OQuolyMod[#1,#2,Fermatica`UseFermat->fermat]&,ODot[ti,ODot[m,t,Fermatica`UseFermat->fermat]-(D[t,x]/.First[Solve[0==D[Last/@notas,x],D[First/@notas,x]]]),Fermatica`UseFermat->fermat],notas](*/Modified 18.05.2019*)
 ]
 
 
-Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],opts:OptionsPattern[]]:=Transform[m,{t,OInverse[t,UseFermat->OptionValue[UseFermat]],True},{x,notas},i,opts];
+Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],opts:OptionsPattern[]]:=Transform[m,{t,OInverse[t,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]],True},{x,notas},i,opts];
 Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False},{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],OptionsPattern[]]:=Module[{mt},If[checked||ODot[ti,t]===IdentityMatrix[Length@t],
-mt=transformrange[m,t,ti,x,i,notas/.Association->List,OptionValue[UseFermat]];
+mt=transformrange[m,t,ti,x,i,notas/.Association->List,OptionValue[Fermatica`UseFermat]];
 mt,
 Message[Transform::notinv];Abort[]]
 ];
@@ -2272,9 +2269,9 @@ If[Not[MatchQ[ii,{(_Integer?(1<=#<= l&))..}]],Message[Transform::range,i];Abort[
 If[DeleteDuplicates[ii]=!=ii,Message[Transform::range,i];Abort[]];
 mt[[ii,ii]]=transform[m[[ii,ii]],t,ti,x,notas,fermat];
 jj=Complement[DependentColumnIndices[m,ii],ii];
-If[jj=!={},mt[[jj,ii]]=(*Modified 18.05.2019*)Fold[OQuolyMod[#,#2,UseFermat->fermat]&,ODot[mt[[jj,ii]],t,UseFermat->fermat],notas/.Association->List](*/Modified 18.05.2019*)];
+If[jj=!={},mt[[jj,ii]]=(*Modified 18.05.2019*)Fold[OQuolyMod[#,#2,Fermatica`UseFermat->fermat]&,ODot[mt[[jj,ii]],t,Fermatica`UseFermat->fermat],notas/.Association->List](*/Modified 18.05.2019*)];
 jj=Complement[DependentRowIndices[m,ii],ii];
-If[jj=!={},mt[[ii,jj]]=(*Modified 18.05.2019*)Fold[OQuolyMod[#,#2,UseFermat->fermat]&,ODot[ti,mt[[ii,jj]],UseFermat->fermat],notas/.Association->List](*/Modified 18.05.2019*)];
+If[jj=!={},mt[[ii,jj]]=(*Modified 18.05.2019*)Fold[OQuolyMod[#,#2,Fermatica`UseFermat->fermat]&,ODot[ti,mt[[ii,jj]],Fermatica`UseFermat->fermat],notas/.Association->List](*/Modified 18.05.2019*)];
 mt
 ];
 
@@ -2284,6 +2281,9 @@ Transform[ds_?DSystemQ,t_,i:{__Integer}|Span[_,_]:Span[1,All],opts:OptionsPatter
 HistoryAppend[ds,{m,{Transform,ds,t,i}},Sequence@@FilterRules[{opts},Options[HistoryAppend]]];
 m
 ]
+
+
+todo["Transform[ds,{T,Ti}]: add QuolyMod the the check that T.Ti=IdentityMatrix"];
 
 
 ChangeVar::usage="ChangeVar[ds,{rules},{vars}] changes variable in the matrix.";
@@ -2735,7 +2735,7 @@ VisTransformation[ds_?DSystemQ,x_Symbol,\[Epsilon]_Symbol:Indeterminate,poles:Al
 VisTransformation[as_Association,x_Symbol,\[Epsilon]_Symbol:Indeterminate,poles:All|{__}:All,opts:OptionsPattern[]]:=VisTransformation[as[x],x,\[Epsilon],poles,opts];
 
 
-Options[VisTransformation]={UseFermat->False,Log->False,Debug->False,Highlighted->False,Animate->False,AnimationRate->5};
+Options[VisTransformation]={Fermatica`UseFermat->False,Log->False,Debug->False,Highlighted->False,Animate->False,AnimationRate->5};
 
 
 VisTransformation[matr_?SquareMatrixQ,x_Symbol,\[Epsilon]_Symbol:Indeterminate,poles:All|{__}:All,OptionsPattern[]]:=Module[
@@ -2977,7 +2977,7 @@ todo["rewrite FactorOut in the spirit of SimplifyFuchsian"];
 FactorDependence::usage="FactorDependence[{m1,m2,\[Ellipsis]},\[Epsilon],\[Mu]] returns a transformation which reduces m1,m2,... to \[Epsilon]\[LongDash]independent matrices.";
 
 
-Options[FactorDependence]={DependentRowIndices->Automatic,Solve->True,UseFermat->False};
+Options[FactorDependence]={DependentRowIndices->Automatic,Solve->True,Fermatica`UseFermat->False};
 FactorDependence[m:{__?SquareMatrixQ},\[Epsilon]_,\[Mu]_,OptionsPattern[]]:=Module[
 {n=Length[First@m],t,vars,eqs,sol,ms},
 ms=Replace[OptionValue[DependentRowIndices],Automatic->tclosure[Transpose[m,{3,1,2}],1,Except[{0..}]]];
