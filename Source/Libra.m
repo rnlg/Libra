@@ -81,7 +81,7 @@ JFormQ;
 JDecomposition;JDecompositionData;
 
 
-JDTowers;JDSpace;JDData;
+JDTowers;JDSpace;JDData;JDecompose;
 
 
 RatFuncQ;PolyQ;
@@ -1416,6 +1416,26 @@ Transpose[{evs,us,vs}]
 ]
 
 
+JDecompose::usage="JDec[\!\(\*
+StyleBox[\"m\", \"TI\"]\)] yields the Jordan decomposition of a square matrix \!\(\*
+StyleBox[\"m\", \"TI\"]\). The result is a list {\!\(\*
+StyleBox[\"t\", \"TI\"]\),\!\(\*
+StyleBox[\"J\", \"TI\"]\)} where \!\(\*
+StyleBox[\"t\", \"TI\"]\) is a similarity matrix and \!\(\*
+StyleBox[\"J\", \"TI\"]\) is the Jordan canonical form of \!\(\*
+StyleBox[\"m\", \"TI\"]\).";
+
+
+JDecompose[m_?SquareMatrixQ]:=Module[{
+evs=DeleteDuplicates@EValues[m],
+jblist,id,
+uslist
+},
+{jblist,uslist}=Transpose[Flatten[Function[ev,{bjf[ev,1,Length@#],#}&/@JDTowers[m,ev]]/@evs,1]];
+{Transpose@Flatten[uslist,1],ArrayFlatten[DiagonalMatrix[id/@jblist]/.id->Identity]}
+]
+
+
 JDDataMod[m_?SquareMatrixQ,x_Symbol->poly_]:=Module[{
 evs=DeleteDuplicates@EValuesMod[m,x->poly],
 us,
@@ -2024,7 +2044,7 @@ SeriesCoefficientMod[ex_,{x_->den_,o_}]:=Replace[Cases[SeriesRulesMod[ex,{x->den
 SeriesCoefficientMod[ex_,{x_,o_}]:=SeriesCoefficientMod[ex,{x->(x/.$LibraNotations),o}]
 
 
-SeriesSolutionData::usage="SeriesSolutionData[M,{x,x0,n}] constructs data for generalized power series solution of the system \[PartialD]U=M\[InvisibleComma]U.\nGeneralized form: SeriesSolutionData[M,{x,y(x),n}].\n    \[FilledSmallCircle] M should be rational.\n    \[FilledSmallCircle] M should be Fuchsian at x=x0.\n    \[FilledSmallCircle] Residue A at x=x0 should be free of resonances.\n    \[FilledSmallCircle] SeriesSolutionData returns data U with the asymptotics (x-x0)^A.\nReturned data has the form of a list with each element having the form {\[Lambda],\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\),s,{\!\(\*SubscriptBox[\(T\), \(1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]T\), \(s\)]\)}&,C[\[Lambda],0..\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\)]}.";
+SeriesSolutionData::usage="SeriesSolutionData[M,{x,x0}] constructs data for generalized power series solution of the system \[PartialD]U=M\[InvisibleComma]U.\nGeneralized form: SeriesSolutionData[M,{x,y(x),n}].\n    \[FilledSmallCircle] M should be rational.\n    \[FilledSmallCircle] M should be Fuchsian at x=x0.\n    \[FilledSmallCircle] Residue A at x=x0 should be free of resonances.\n    \[FilledSmallCircle] SeriesSolutionData returns data U with the asymptotics (x-x0)^A.\nReturned data has the form of a list with each element having the form {\[Lambda],\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\),s,{\!\(\*SubscriptBox[\(T\), \(1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]T\), \(s\)]\)}&,C[\[Lambda],0..\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\)]}.";
 SeriesSolutionData::notrat="Matrix received is not rational in `1`.";
 SeriesSolutionData::ppr="Positive Poincare rank at `1`=`2`.";
 SeriesSolutionData::res="Resonant eigenvalues at `1`=`2`.";
@@ -2039,7 +2059,7 @@ If[!RatFuncQ[M,y],Message[SeriesSolutionData::notrat,yv];Return[$Failed]];
 If[(pr=PoincareRank[M,{y,0}])>0,Message[SeriesSolutionData::ppr,yv,0];Return[$Failed]];
 A=SeriesCoefficient[M,{y,0,-1}];
 CWrite["\n"];CWrite[statusline="Reducing to Jordan form..."];
-{T,JF}=JDecomposition[A];
+{T,JF}=(*Modified 11.01.2020*)JDecompose[A](*/Modified 11.01.2020*);
 fp=p[#[[1,1]],Max[Length/@#]-1]&/@GatherBy[DeleteDuplicates[Map[First,Split[Transpose[{Diagonal[JF],Append[Diagonal[JF,1],0]}],#1[[2]]=!=0&],{2}]],First];
 PrintTemporary["Leading expansion terms:\n",Sequence@@(Riffle[TraditionalForm[yv^#1 Log[yv]^#2]&@@@fp,","])];
 If[MemberQ[Factor[Subtract@@@Subsets[First/@fp,{2}]],_Integer],Message[SeriesSolutionData::res,yv,0];Return[$Failed]];
@@ -2292,10 +2312,13 @@ ChangeVar::usage="ChangeVar[ds,{rules},{vars}] changes variable in the matrix.";
 ChangeVar[m_?SquareMatrixQ,x_->xviay_,y_Symbol]:=Factor[m D[xviay,y]/.x->xviay]
 
 
-ChangeVar[ds_?DSystemQ,rs1:_Rule|{__Rule},ys1:_Symbol|_List]:=Module[{keys=Keys[ds[[]]],M,rs=Flatten[{rs1}],ys=Flatten[{ys1}],nkeys=First/@(Notations[ds]/.Association->List)},
+Options[ChangeVar]={Print->False}
+
+
+ChangeVar[ds_?DSystemQ,rs1:_Rule|{__Rule},ys1:_Symbol|_List,OptionsPattern[]]:=Module[{keys=Keys[ds[[]]],M,rs=Flatten[{rs1}],ys=Flatten[{ys1}],nkeys=First/@(Notations[ds]/.Association->List)},
 M=Association@@(Function[y,y->Plus@@((D[#1/.rs,y]ds[#1]/.rs)&/@keys)]/@ys);
 unprotect[ds,Notations[ds]^=Numerator@Together[Notations[ds]/.rs]];
-HistoryAppend[ds,{M,{ChangeVar,ds,rs,ys}}];
+HistoryAppend[ds,{M,{ChangeVar,ds,rs,ys}},Print->OptionValue[Print]];
 Protect[ys]
 ]
 
@@ -3127,15 +3150,14 @@ If[{notations}==={},
 notas={},
 notas=notations/.Association->List
 ];
-NewDSystem[b,x->m[[all,all]],Print->False];
-Factor[b];
+NewDSystem[b,x->Factor[m[[all,all]]],Print->False];
 (*Treat notations*)
 notas=Select[notas,Not[FreeQ[b[x],First[#]]]&];
 If[Length@notas>1,Message[FuchsifyBlock::notas];Abort[]];
 If[Length@notas==1,
 PrintTemporary["Found one notation. Changing variable..."];
 {y,x2y}={notas[[1,1]],NotationToRule[notas[[1]],x]};
-ChangeVar[b,x2y,y],
+ChangeVar[b,x2y,y,Print->False],
 y=x
 ];
 (*/Treat notations*)
