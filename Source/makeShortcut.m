@@ -12,7 +12,7 @@ WriteString[init,"Begin[\"Libra`Private`\"]\n\
       Print[\"Error: can not find \"<>file<>\"\\nCheck if this file exists in \"<>path]\n\
     ]\n\
   ]"<>"\n\
-End[]"
+End[];"
 ]
 Close[init]
 Print["Installed shortcut for "<>file<>".\nTo load the package, use\n  <<Libra`"]
