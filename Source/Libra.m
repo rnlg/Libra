@@ -149,6 +149,9 @@ FactorLeadingLetter;FactorTrailingLetter;
 EValues;ESpace;
 
 
+ OMatrixExp;
+
+
 InvertMod;QuolyMod;OQuolyMod;
 ExtendedQuolyMod;
 ModNotation=Libra`Private`obsolete[OQuolyMod,"ModNotation[\[Ellipsis]]"->"OQuolyMod[\[Ellipsis]]"]
@@ -1852,7 +1855,7 @@ diag=EntangledBlocksIndices[s,True];
 (stat="Inverting diagonal elements with indices "<>ToString[#];
 If[print,CWrite["\n"];CWrite[stat]];
 mi[[#,#]]=If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],
-Replace[CheckAbort[FInverse[#],$Failed],$Failed:>(Print["Inverse: resorting to Mathematica\[Ellipsis]"];Together[Inverse[#]])],
+Replace[CheckAbort[Fermatica`FInverse[#],$Failed],$Failed:>(Print["Inverse: resorting to Mathematica\[Ellipsis]"];Together[Inverse[#]])],
 Together[Inverse[#]]]&@m[[#,#]])&/@diag;
 (dep=Complement[DependentRowIndices[s,#,True],#];stat="Inverting off-diagonal elements "<>ToString[dep]<>" on rows "<>ToString[#];
 If[print,CWrite["\n"];CWrite[stat]];
@@ -1863,7 +1866,24 @@ Return[mi]
 ]
 
 
-FInverse[ex_]:=Fermatica`FInverse[ex](*FCStaticMonitor[Fermatica`FInverse[ex],Style["Executing Fermatica`FInverse...",Tiny],1]*)
+OMatrixExp::usage="OMatrixExp[A] gives the matrix exponent using resolvent. Should be faster for block-triangular matrices than MatrixExp[A].";
+
+
+Options[OMatrixExp]={Fermatica`UseFermat->False,EValues->Automatic};
+
+
+OMatrixExp[A_,OptionsPattern[]]:=Module[{n=Length@A,resolvent,a,statusline="",evs,resexp},
+Monitor[
+statusline="Calculating eigenvalues...";
+evs=DeleteDuplicates@Replace[OptionValue[EValues],Automatic:>EValues[A]];
+statusline="Calculating resolvent...";
+resolvent=OInverse[IdentityMatrix[n]*a-A,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]];
+resexp=Exp[a]*resolvent;
+statusline="Calculating residues...";
+Plus@@((statusline="Calculating residue at "<>ToString[#];SeriesCoefficient[resexp,{a,#,-1}])&/@evs)
+,
+statusline]
+]
 
 
 Unprotect[Series];
@@ -2051,19 +2071,23 @@ SeriesSolutionData::res="Resonant eigenvalues at `1`=`2`.";
 
 
 ssd[M_?SquareMatrixQ,y_,yv_]:=Module[
-{pr,A,T,JF,x2A,p,fp,Q,poles,dens,qs,Bs,\[Lambda],tmp,
-Rcoefs,rcoefs,n,Rdata,
+{pr,A,res,T,JF,y2A,p,evs,fp,Q,poles,dens,qs,Bs,\[Lambda],tmp,
+Rcoefs,rcoefs,n,Rdata,ly,
 statusline=""},
 FCMonitor[
+CWrite["\n"];CWrite[statusline="Finding matrix residue..."];
 If[!RatFuncQ[M,y],Message[SeriesSolutionData::notrat,yv];Return[$Failed]];
 If[(pr=PoincareRank[M,{y,0}])>0,Message[SeriesSolutionData::ppr,yv,0];Return[$Failed]];
 A=SeriesCoefficient[M,{y,0,-1}];
-CWrite["\n"];CWrite[statusline="Reducing to Jordan form..."];
-{T,JF}=(*Modified 11.01.2020*)JDecompose[A](*/Modified 11.01.2020*);
-fp=p[#[[1,1]],Max[Length/@#]-1]&/@GatherBy[DeleteDuplicates[Map[First,Split[Transpose[{Diagonal[JF],Append[Diagonal[JF,1],0]}],#1[[2]]=!=0&],{2}]],First];
+res=OInverse[\[Lambda]*IdentityMatrix[Length@A]-A];(*resolvent*)
+CWrite["\n"];CWrite[statusline="Finding leading expansion terms..."];
+evs=DeleteDuplicates@EValues[A];
+If[MemberQ[Factor[Subtract@@@Subsets[evs,{2}]],_Integer],Message[SeriesSolutionData::res,yv,0];Return[$Failed]];
+fp={#1,-LeadingOrder[res,{\[Lambda],#}]-1}&/@evs;
 PrintTemporary["Leading expansion terms:\n",Sequence@@(Riffle[TraditionalForm[yv^#1 Log[yv]^#2]&@@@fp,","])];
-If[MemberQ[Factor[Subtract@@@Subsets[First/@fp,{2}]],_Integer],Message[SeriesSolutionData::res,yv,0];Return[$Failed]];
-(*Now we find common denominator Q, Eq(6) of DESS paper*)
+CWrite["\n"];CWrite[statusline="Evaluating matrix exponent..."];(*y2A stands for y^A*)
+y2A=Plus@@(Function[a,statusline="Evaluating matrix exponent: calculating residue at "<>ToString[a];
+Map[Plus@@MapIndexed[p[a,First@#2-1]*#1&,CoefficientList[#,ly]]&,SeriesCoefficient[res*Exp[(\[Lambda]-a)*ly],{\[Lambda],a,-1}],{2}]]/@evs);(*Now we find common denominator Q, Eq(6) of DESS paper*)
 CWrite["\n"];CWrite[statusline="Getting rid  of denominators..."];
 (*poles=DeleteCases[PolesPosition[M,y],\[Infinity]|0];
 Q=Times@@((y-#)^(1+PoincareRank[M,{y,#}])&/@poles);*)
@@ -2074,8 +2098,6 @@ Q*=PolynomialLCM[Sequence@@dens,y];
 Q=Numerator@Together[Q/y];
 qs=CoefficientList[Q,y];
 Bs=Coefficient[Factor[Q(y M-\[Lambda] IdentityMatrix[Length@M])],y,#]&/@Range[0,Length[qs]-1];
-CWrite["\n"];CWrite[statusline="Evaluating matrix exponent..."];
-x2A=ODot[ODot[T,(Expand[Expand[Simplify[MatrixExp[JF*Log[y]]]p[0,0]]/.{Log[y]->p[0,1],y->p[1,0]}]//.{p[a_,b_]^c_:>p[a*c,b*c],p[a_,b_]*p[c_,d_]:>p[a+c,b+d]})],OInverse[T]];
 CWrite["\n"];CWrite[statusline="Evaluating recurrence coefficients..."];
 Rcoefs=Function[{\[Alpha],k},Evaluate@MapThread[bjf[#1,#2*IdentityMatrix[Length@M],k+1]&,{MapIndexed[(#/.{\[Lambda]->\[Alpha]+n-First[#2]+1})&,Bs],-qs},1](*Function[n,]*)];
 Rdata=Function[{\[Alpha],k},
@@ -2083,7 +2105,7 @@ CWrite["\n"];CWrite[statusline="Evaluating recurrence coefficients for power "<>
 rcoefs=Rcoefs[\[Alpha],k](*[n]*);
 tmp=OInverse[-rcoefs[[1]]];(*may be improved by dedicated calculation of inverse of bjf with 
 off-diagonal terms calculated by iterative multiplication by -A^(-1)B*)
-{\[Alpha],k,Length@rcoefs-1(*=s from the paper*),Function@@({ODot[tmp,#]&/@Rest[rcoefs]/.n:>Slot[1]}),Flatten[#!*Coefficient[x2A,p[\[Alpha],#]]&/@Range[0,k],1]}
+{\[Alpha],k,Length@rcoefs-1(*=s from the paper*),Function@@({ODot[tmp,#]&/@Rest[rcoefs]/.n:>Slot[1]}),Flatten[#!*Coefficient[y2A,p[\[Alpha],#]]&/@Range[0,k],1]}
 ]@@@fp;
 Rdata
 ,statusline]]
