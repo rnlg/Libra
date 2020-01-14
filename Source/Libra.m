@@ -149,6 +149,9 @@ FactorLeadingLetter;FactorTrailingLetter;
 EValues;ESpace;
 
 
+ OMatrixExp;
+
+
 InvertMod;QuolyMod;OQuolyMod;
 ExtendedQuolyMod;
 ModNotation=Libra`Private`obsolete[OQuolyMod,"ModNotation[\[Ellipsis]]"->"OQuolyMod[\[Ellipsis]]"]
@@ -391,60 +394,12 @@ HistoryChop::usage="HistoryChop[ds_] chops off forward entries in history. Use b
 HistoryChop[ds_?DSystemQ]:=(unprotect[ds,History[ds]^=Take[History[ds],HistoryIndex[ds]]];HistoryIndex[ds])
 
 
-HistoryConsolidate::usage="HistoryConsolidate[ds] consolidates history. ";
-
-
-HistoryConsolidate::obsolete="HistoryConsolidate is supreceeded by OverallTransformation. The latter returns not only the transformation matrix, but also change of variables and introduced notations.\n\
+HistoryConsolidate::usage="HistoryConsolidate[ds] consolidates history.\n\
+HistoryConsolidate is superceeded by OverallTransformation. The latter returns not only the transformation matrix, but also change of variables and introduced notations.\n\
 NB: HistoryConsolidate[ds] is now OverallTransformation[ds][Transform].";
-HistoryConsolidate::err="Undo history entry is met.";
-HistoryConsolidate::chop="Did not change history to avoid overwriting forward entries. Use HistoryChop[`1`] first."
 
 
-Options[HistoryConsolidate]={(*(*Deleted 02.12.2019*)HistoryChop\[Rule]False,HistoryAppend\[Rule]False,(*/Deleted 02.12.2019*)*)
-Inverse->False(*whether to calculate inverse transformation matrix*)
-};
-
-
-HistoryConsolidate[ds_?DSystemQ,OptionsPattern[]]:=Module[{T=IdentityMatrix[Length@ds],Ti=IdentityMatrix[Length@ds],i,ii,t,start,end,val,old,new,subs,inv=OptionValue[Inverse]},
-(*First, calculate transformation. We move in history up to the first Undo[ds,All] or first entry*)
-(*starting index: either 1 or index of first full undo*)
-start=Position[Take[History[ds],HistoryIndex[ds]],{_,{Undo,ds,_}|{NewDSystem,ds,__},___},{1}][[-1,1]];
-val=History[ds][[start,1]];
-old=new=subs=Keys[val];
-end=HistoryIndex[ds];
-CWrite["\n["<>ToString[end-start]<>"|"];
-FCMonitor[Do[
-CWrite["."];
-Replace[History[ds][[i,2]],{
-{Transform,ds,tt_?SquareMatrixQ}:>(T=ODot[T,tt];If[inv,Ti=ODot[OInverse[tt],Ti]]),
-{Transform,ds,{tt_?SquareMatrixQ,tti_?SquareMatrixQ}}:>(T=ODot[T,tt];If[inv,Ti=ODot[tti,Ti]]),
-{Transform,ds,tt_?SquareMatrixQ,ii_}:>(T[[All,ii]]=ODot[T[[All,ii]],tt];If[inv,Ti[[ii]]=ODot[OInverse[tt],Ti[[ii]]]]),
-{Transform,ds,{tt_?SquareMatrixQ,tti_?SquareMatrixQ},ii_}:>(T[[All,ii]]=ODot[T[[All,ii]],tt];If[inv,Ti[[ii]]=ODot[tti,Ti[[ii]]]]),
-{ChangeVar,ds,tt_,nw_,___}:>(T=Factor[T/.tt];If[inv,Ti=Factor[Ti/.tt]];subs=Factor[subs/.tt];new=nw),
-{Factor,ds}:>(T=Factor[T];If[inv,Ti=Factor[Ti]]),
-{Simplify,ds,tt___}:>(T=Simplify[T,tt];If[inv,Ti=Simplify[Ti,tt]];subs=Simplify[subs,tt]),
-{Map,f_,ds,tt___}:>(T=Map[f,T,tt];If[inv,Ti=Map[f,Ti,tt]];),
-{MapAt,f_,ds,tt___}:>(T=MapAt[f,T,tt];If[inv,Ti=MapAt[f,Ti,tt]]),
-{Undo,__}:>(Message[HistoryConsolidate::err];Abort[])
-}
-],
-{i,start+1,end}],
-Overlay[{ProgressIndicator[i,{start,end}],ToString[i-start]<>"/"<>ToString[end-start]},Alignment->Center]];
-CWrite["]"];
-T=Fold[QuolyMod[#,#2]&,T,Notations[ds]];
-If[inv,Ti=Fold[QuolyMod[#,#2]&,Ti,Notations[ds]]];
-(*(*Deleted 02.12.2019*)If[TrueQ@OptionValue[HistoryAppend],
-If[TrueQ@OptionValue[HistoryChop]||Length@History[ds]\[LessEqual]HistoryIndex[ds],
-HistoryAppend[ds,{val,{Undo,ds,end-start}}];
-ChangeVar[ds,Thread[old\[Rule]subs],new];
-If[inv,
-Transform[ds,{T,Ti}],
-Transform[ds,T]
-],
-Message[HistoryConsolidate::chop,ds]
-]];(*/Deleted 02.12.2019*)*)
-T
-]
+HistoryConsolidate[ds_?DSystemQ,opts:OptionsPattern[]]:=OverallTransformation[ds,opts][Transform];
 
 
 todo["HistoryConsolidate: make the procedure more flexible to allow for replacing parts of the history, both idex- and labels-based. (labels probably via HistoryAddExtra)"];
@@ -453,16 +408,28 @@ todo["HistoryConsolidate: make the procedure more flexible to allow for replacin
 todo["Think about better strategy of option UseFermat"];
 
 
-OverallTransformation::usage="OverallTransformation[ds] calculates the overall transformation of the system: the transformation matrix, variables change, and introduced notations. It returns the association with entries Transform (for transformation matrix), ChangeVar (for variables change), and Notations (for introduced notations).";
+OverallTransformation::usage="OverallTransformation[ds] calculates the overall transformation of the system: the transformation matrix, variables change, and introduced notations. It returns the association with entries Transform (for transformation matrix), ChangeVar (for variables change), and Notations (for introduced notations).\n\
+NB: Option UseFermat can be True, False, or  \"\!\(\*
+StyleBox[\"abc\",\nFontSlant->\"Italic\"]\)\", where \!\(\*
+StyleBox[\"abc\",\nFontSlant->\"Italic\"]\) is three-digit binary number, \!\(\*
+StyleBox[\"a\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"=\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"1\",\nFontSlant->\"Italic\"]\), \!\(\*
+StyleBox[\"b\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"=\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"1\",\nFontSlant->\"Italic\"]\), \!\(\*
+StyleBox[\"c\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"=\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"1\",\nFontSlant->\"Italic\"]\) instructs to use Fermat for OInverse, ODot, and OQuoluMod, respectively.";
 
 
 OverallTransformation::err="Undo history entry is met.";
 
 
-Options[OverallTransformation]={Inverse->False};
+Options[OverallTransformation]={Inverse->False,Fermatica`UseFermat->False};
 
 
-OverallTransformation[ds_?DSystemQ,OptionsPattern[]]:=Module[{T=IdentityMatrix[Length@ds],Ti=IdentityMatrix[Length@ds],i,ii,t,start,end,val,old,new,subs,inv=OptionValue[Inverse]},
+OverallTransformation[ds_?DSystemQ,OptionsPattern[]]:=Module[{T=IdentityMatrix[Length@ds],Ti=IdentityMatrix[Length@ds],i,ii,t,start,end,val,old,new,subs,inv=OptionValue[Inverse],fflags=Replace[IntegerDigits[Replace[OptionValue[Fermatica`UseFermat],{False|None->0,True|All->7,f_String:>FromDigits[f,2]}],2,3],{1->True,0->False},{1}]},
 (*First, calculate transformation. We move in history up to the first Undo[ds,All] or first entry*)
 (*starting index: either 1 or index of first full undo*)
 start=Position[Take[History[ds],HistoryIndex[ds]],{_,{Undo,ds,_}|{NewDSystem,ds,__},___},{1}][[-1,1]];
@@ -473,10 +440,10 @@ CWrite["\n["<>ToString[end-start]<>"|"];
 FCMonitor[Do[
 CWrite["."];
 Replace[History[ds][[i,2]],{
-{Transform,ds,tt_?SquareMatrixQ}:>(T=ODot[T,tt];If[inv,Ti=ODot[OInverse[tt],Ti]]),
-{Transform,ds,{tt_?SquareMatrixQ,tti_?SquareMatrixQ}}:>(T=ODot[T,tt];If[inv,Ti=ODot[tti,Ti]]),
-{Transform,ds,tt_?SquareMatrixQ,ii_}:>(T[[All,ii]]=ODot[T[[All,ii]],tt];If[inv,Ti[[ii]]=ODot[OInverse[tt],Ti[[ii]]]]),
-{Transform,ds,{tt_?SquareMatrixQ,tti_?SquareMatrixQ},ii_}:>(T[[All,ii]]=ODot[T[[All,ii]],tt];If[inv,Ti[[ii]]=ODot[tti,Ti[[ii]]]]),
+{Transform,ds,tt_?SquareMatrixQ}:>(T=ODot[T,tt,Fermatica`UseFermat->fflags[[2]]];If[inv,Ti=ODot[OInverse[tt,Fermatica`UseFermat->fflags[[1]]],Ti,Fermatica`UseFermat->fflags[[2]]]]),
+{Transform,ds,{tt_?SquareMatrixQ,tti_?SquareMatrixQ}}:>(T=ODot[T,tt,Fermatica`UseFermat->fflags[[2]]];If[inv,Ti=ODot[tti,Ti,Fermatica`UseFermat->fflags[[2]]]]),
+{Transform,ds,tt_?SquareMatrixQ,ii_}:>(T[[All,ii]]=ODot[T[[All,ii]],tt,Fermatica`UseFermat->fflags[[2]]];If[inv,Ti[[ii]]=ODot[OInverse[tt,Fermatica`UseFermat->fflags[[1]]],Ti[[ii]],Fermatica`UseFermat->fflags[[2]]]]),
+{Transform,ds,{tt_?SquareMatrixQ,tti_?SquareMatrixQ},ii_}:>(T[[All,ii]]=ODot[T[[All,ii]],tt,Fermatica`UseFermat->fflags[[2]]];If[inv,Ti[[ii]]=ODot[tti,Ti[[ii]],Fermatica`UseFermat->fflags[[2]]]]),
 {ChangeVar,ds,tt_,nw_,___}:>(T=Factor[T/.tt];If[inv,Ti=Factor[Ti/.tt]];subs=Factor[subs/.tt];new=nw),
 {Factor,ds}:>(T=Factor[T];If[inv,Ti=Factor[Ti]]),
 {Simplify,ds,tt___}:>(T=Simplify[T,tt];If[inv,Ti=Simplify[Ti,tt]];subs=Simplify[subs,tt]),
@@ -488,8 +455,8 @@ Replace[History[ds][[i,2]],{
 {i,start+1,end}],
 Overlay[{ProgressIndicator[i,{start,end}],ToString[i-start]<>"/"<>ToString[end-start]},Alignment->Center]];
 CWrite["]"];
-T=Fold[QuolyMod[#,#2]&,T,Notations[ds]];
-If[inv,Ti=Fold[QuolyMod[#,#2]&,Ti,Notations[ds]]];
+T=Fold[OQuolyMod[#,#2,Fermatica`UseFermat->fflags[[3]]]&,T,Notations[ds]];
+If[inv,Ti=Fold[OQuolyMod[#,#2,Fermatica`UseFermat->fflags[[3]]]&,Ti,Notations[ds]]];
 <|Transform->If[inv,{T,Ti},T],ChangeVar->{Thread[old->subs],new},Notations->Notations[ds],In->val,Out->ds[]|>
 ]
 
@@ -1775,15 +1742,12 @@ OQuolyMod::usage="OQuolyMod[quoly,poly,x] gives the \"remainder\" of the rationa
 Options[OQuolyMod]={Fermatica`UseFermat->False};
 
 
-done["Remove obsolete definitionfor OQuolyMod[quoly_,rule:_Rule|_RuleDelayed]"];
-
-
 OQuolyMod[quoly_,poly:Except[_Rule|{___Rule}],x_Symbol,opts:OptionsPattern[]]:=OQuolyMod[quoly,x->poly,opts]
 
 
 OQuolyMod[quoly_,list_List,opts:OptionsPattern[]]:=Fold[OQuolyMod[#1,#2,opts]&,quoly,list];
 OQuolyMod[quoly_,x_Symbol->poly_,OptionsPattern[]]:=If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],
-Replace[CheckAbort[FQuolyMod[quoly,poly,x],$Failed],$Failed:>(Print["OQuolyMod: resorting to Mathematica\[Ellipsis]"];QuolyMod[quoly,x->poly])],
+Replace[CheckAbort[FQuolyMod[quoly,x->poly],$Failed],$Failed:>(Print["OQuolyMod: resorting to Mathematica\[Ellipsis]"];QuolyMod[quoly,x->poly])],
 QuolyMod[quoly,x->poly]]
 
 
@@ -1800,11 +1764,8 @@ Options[ODot]={Fermatica`UseFermat->False,Together->True};
 
 
 ODot[exs__,OptionsPattern[]]:=If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],
-Replace[CheckAbort[FDot[exs],$Failed],$Failed:>(Print["ODot: resorting to Mathematica\[Ellipsis]"];If[OptionValue[Together],Together,Identity]@Dot[exs])],
+Replace[CheckAbort[Fermatica`FDot[exs],$Failed],$Failed:>(Print["ODot: resorting to Mathematica\[Ellipsis]"];If[OptionValue[Together],Together,Identity]@Dot[exs])],
 If[OptionValue[Together],Together,Identity]@Dot[exs]];
-
-
-FDot[exs__]:=Fermatica`FDot[exs](*FCStaticMonitor[Fermatica`FDot[exs],Style["Executing Fermatica`FDot...",Tiny],1]*)
 
 
 ODet::usage="ODet[m1] is an optimized version of Det."
@@ -1814,11 +1775,8 @@ Options[ODet]={Fermtica`UseFermat->False};
 
 
 ODet[m_?SquareMatrixQ,OptionsPattern[]]:=If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],
-Replace[CheckAbort[FDet[m],$Failed],$Failed:>(Print["ODet: resorting to Mathematica\[Ellipsis]"];Det[m])],
+Replace[CheckAbort[Fermatica`FDet[m],$Failed],$Failed:>(Print["ODet: resorting to Mathematica\[Ellipsis]"];Det[m])],
 Det[m]];
-
-
-FDet[m__]:=Fermatica`FDet[m](*FCStaticMonitor[Fermatica`FDet[m],Style["Executing Fermatica`FDet...",Tiny],1]*)
 
 
 OKer::usage="OKer[m1] is an optimized version of NullSpace."
@@ -1828,13 +1786,10 @@ Options[OKer]={Fermatica`UseFermat->False};
 
 
 OKer[m_?MatrixQ,OptionsPattern[]]:=
-Replace[If[$LibraUseFermat&&OptionValue[Fermtica`UseFermat],
-CheckAbort[FKer[m],Print["ODet: resorting to Mathematica\[Ellipsis]"];ker[m]],
+Replace[If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],
+CheckAbort[Fermatica`FKer[m],Print["ODet: resorting to Mathematica\[Ellipsis]"];ker[m]],
 ker[m]],
 {{0..}}->{}];
-
-
-FKer[m_]:=Fermatica`FKer[m](*FCStaticMonitor[Fermatica`FKer[m],Style["Executing Fermatica`FKer...",Tiny],1]*)
 
 
 OInverse::usage="OInverse[m] is an optimized version of Inverse[m] for block-triangular matrices.";
@@ -1845,25 +1800,41 @@ Options[OInverse]={Print->False,Fermatica`UseFermat->False};
 
 OInverse[m_?SquareMatrixQ,OptionsPattern[]]:=Module[{s=TClosure[m],print=TrueQ@OptionValue[Print],diag,dep,mi=IdentityMatrix[Length@m],stat=""},
 (*invert diagonal*)
+If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],Return[Fermatica`FInverse[m]]];
 If[print,FCMonitor,#&][
 stat="Finding diagonal blocks\[Ellipsis]";
 If[print,CWrite["\n"];CWrite[stat]];
 diag=EntangledBlocksIndices[s,True];
 (stat="Inverting diagonal elements with indices "<>ToString[#];
 If[print,CWrite["\n"];CWrite[stat]];
-mi[[#,#]]=If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],
-Replace[CheckAbort[FInverse[#],$Failed],$Failed:>(Print["Inverse: resorting to Mathematica\[Ellipsis]"];Together[Inverse[#]])],
-Together[Inverse[#]]]&@m[[#,#]])&/@diag;
+mi[[#,#]]=Together[Inverse[#]]&@m[[#,#]])&/@diag;
 (dep=Complement[DependentRowIndices[s,#,True],#];stat="Inverting off-diagonal elements "<>ToString[dep]<>" on rows "<>ToString[#];
 If[print,CWrite["\n"];CWrite[stat]];
-mi[[#,dep]]=-ODot[mi[[#,#]],ODot[m[[#,dep]],mi[[dep,dep]]]])&/@diag;
+mi[[#,dep]]=-ODot[mi[[#,#]],m[[#,dep]],mi[[dep,dep]],Fermatica`UseFermat->False])&/@diag;
 ,
 stat];
 Return[mi]
 ]
 
 
-FInverse[ex_]:=Fermatica`FInverse[ex](*FCStaticMonitor[Fermatica`FInverse[ex],Style["Executing Fermatica`FInverse...",Tiny],1]*)
+OMatrixExp::usage="OMatrixExp[A] gives the matrix exponent using resolvent. Should be faster for block-triangular matrices than MatrixExp[A].";
+
+
+Options[OMatrixExp]={Fermatica`UseFermat->False,EValues->Automatic};
+
+
+OMatrixExp[A_,OptionsPattern[]]:=Module[{n=Length@A,resolvent,a,statusline="",evs,resexp},
+Monitor[
+statusline="Calculating eigenvalues...";
+evs=DeleteDuplicates@Replace[OptionValue[EValues],Automatic:>EValues[A]];
+statusline="Calculating resolvent...";
+resolvent=OInverse[IdentityMatrix[n]*a-A,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]];
+resexp=Exp[a]*resolvent;
+statusline="Calculating residues...";
+Plus@@((statusline="Calculating residue at "<>ToString[#];SeriesCoefficient[resexp,{a,#,-1}])&/@evs)
+,
+statusline]
+]
 
 
 Unprotect[Series];
@@ -2044,26 +2015,42 @@ SeriesCoefficientMod[ex_,{x_->den_,o_}]:=Replace[Cases[SeriesRulesMod[ex,{x->den
 SeriesCoefficientMod[ex_,{x_,o_}]:=SeriesCoefficientMod[ex,{x->(x/.$LibraNotations),o}]
 
 
-SeriesSolutionData::usage="SeriesSolutionData[M,{x,x0}] constructs data for generalized power series solution of the system \[PartialD]U=M\[InvisibleComma]U.\nGeneralized form: SeriesSolutionData[M,{x,y(x),n}].\n    \[FilledSmallCircle] M should be rational.\n    \[FilledSmallCircle] M should be Fuchsian at x=x0.\n    \[FilledSmallCircle] Residue A at x=x0 should be free of resonances.\n    \[FilledSmallCircle] SeriesSolutionData returns data U with the asymptotics (x-x0)^A.\nReturned data has the form of a list with each element having the form {\[Lambda],\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\),s,{\!\(\*SubscriptBox[\(T\), \(1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]T\), \(s\)]\)}&,C[\[Lambda],0..\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\)]}.";
+SeriesSolutionData::usage="SeriesSolutionData[M,{x,x0}] constructs data for generalized power series solution of the system \[PartialD]U=M\[InvisibleComma]U.\nGeneralized form: SeriesSolutionData[M,{x,y(x),n}].\n    \[FilledSmallCircle] M should be rational.\n    \[FilledSmallCircle] M should be Fuchsian at x=x0.\n    \[FilledSmallCircle] Residue A at x=x0 should be free of resonances.\n    \[FilledSmallCircle] SeriesSolutionData returns data U with the asymptotics (x-x0)^A.\nReturned data has the form of a list with each element having the form {\[Lambda],\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\),s,{\!\(\*SubscriptBox[\(T\), \(1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]T\), \(s\)]\)}&,C[\[Lambda],0..\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\)]}.\n\
+NB: Option UseFermat can be either True, False or three-digit binary number \"\!\(\*
+StyleBox[\"abc\",\nFontSlant->\"Italic\"]\)\", with \!\(\*
+StyleBox[\"a\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"=\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"1\",\nFontSlant->\"Italic\"]\), \!\(\*
+StyleBox[\"b\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"=\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"1\",\nFontSlant->\"Italic\"]\), \!\(\*
+StyleBox[\"c\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"=\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"1\",\nFontSlant->\"Italic\"]\) corresponding to using Fermat at the calculation of resolvent (with OInverse), in OInverse and ODot, respectively.";
 SeriesSolutionData::notrat="Matrix received is not rational in `1`.";
 SeriesSolutionData::ppr="Positive Poincare rank at `1`=`2`.";
 SeriesSolutionData::res="Resonant eigenvalues at `1`=`2`.";
 
 
-ssd[M_?SquareMatrixQ,y_,yv_]:=Module[
-{pr,A,T,JF,x2A,p,fp,Q,poles,dens,qs,Bs,\[Lambda],tmp,
-Rcoefs,rcoefs,n,Rdata,
-statusline=""},
+(*fermat --- binary number for using Fermat in several instances.*)
+ssd[M_?SquareMatrixQ,y_,yv_,fermat:(_String|_Integer|False|None|True|All)]:=Module[
+{pr,A,res,T,JF,y2A,p,evs,fp,Q,poles,dens,qs,Bs,\[Lambda],tmp,
+Rcoefs,rcoefs,n,Rdata,ly,
+statusline="",fflags=Replace[IntegerDigits[Replace[fermat,{False|None->0,True|All->7,f_String:>FromDigits[f,2]}],2,3],{1->True,0->False},{1}]},
 FCMonitor[
+CWrite["\n"];CWrite[statusline="Finding matrix residue..."];
 If[!RatFuncQ[M,y],Message[SeriesSolutionData::notrat,yv];Return[$Failed]];
 If[(pr=PoincareRank[M,{y,0}])>0,Message[SeriesSolutionData::ppr,yv,0];Return[$Failed]];
 A=SeriesCoefficient[M,{y,0,-1}];
-CWrite["\n"];CWrite[statusline="Reducing to Jordan form..."];
-{T,JF}=(*Modified 11.01.2020*)JDecompose[A](*/Modified 11.01.2020*);
-fp=p[#[[1,1]],Max[Length/@#]-1]&/@GatherBy[DeleteDuplicates[Map[First,Split[Transpose[{Diagonal[JF],Append[Diagonal[JF,1],0]}],#1[[2]]=!=0&],{2}]],First];
+res=OInverse[\[Lambda]*IdentityMatrix[Length@A]-A,Fermatica`UseFermat->fflags[[1]]];(*resolvent*)
+CWrite["\n"];CWrite[statusline="Finding leading expansion terms..."];
+evs=DeleteDuplicates@EValues[A];
+If[MemberQ[Factor[Subtract@@@Subsets[evs,{2}]],_Integer],Message[SeriesSolutionData::res,yv,0];Return[$Failed]];
+fp={#1,-LeadingOrder[res,{\[Lambda],#}]-1}&/@evs;
 PrintTemporary["Leading expansion terms:\n",Sequence@@(Riffle[TraditionalForm[yv^#1 Log[yv]^#2]&@@@fp,","])];
-If[MemberQ[Factor[Subtract@@@Subsets[First/@fp,{2}]],_Integer],Message[SeriesSolutionData::res,yv,0];Return[$Failed]];
-(*Now we find common denominator Q, Eq(6) of DESS paper*)
+CWrite["\n"];CWrite[statusline="Evaluating matrix exponent..."];(*y2A stands for y^A*)
+y2A=Plus@@(Function[a,statusline="Evaluating matrix exponent: calculating residue at "<>ToString[a];
+Map[Plus@@MapIndexed[p[a,First@#2-1]*#1&,CoefficientList[#,ly]]&,SeriesCoefficient[res*Exp[(\[Lambda]-a)*ly],{\[Lambda],a,-1}],{2}]]/@evs);(*Now we find common denominator Q, Eq(6) of DESS paper*)
 CWrite["\n"];CWrite[statusline="Getting rid  of denominators..."];
 (*poles=DeleteCases[PolesPosition[M,y],\[Infinity]|0];
 Q=Times@@((y-#)^(1+PoincareRank[M,{y,#}])&/@poles);*)
@@ -2074,28 +2061,29 @@ Q*=PolynomialLCM[Sequence@@dens,y];
 Q=Numerator@Together[Q/y];
 qs=CoefficientList[Q,y];
 Bs=Coefficient[Factor[Q(y M-\[Lambda] IdentityMatrix[Length@M])],y,#]&/@Range[0,Length[qs]-1];
-CWrite["\n"];CWrite[statusline="Evaluating matrix exponent..."];
-x2A=ODot[ODot[T,(Expand[Expand[Simplify[MatrixExp[JF*Log[y]]]p[0,0]]/.{Log[y]->p[0,1],y->p[1,0]}]//.{p[a_,b_]^c_:>p[a*c,b*c],p[a_,b_]*p[c_,d_]:>p[a+c,b+d]})],OInverse[T]];
 CWrite["\n"];CWrite[statusline="Evaluating recurrence coefficients..."];
 Rcoefs=Function[{\[Alpha],k},Evaluate@MapThread[bjf[#1,#2*IdentityMatrix[Length@M],k+1]&,{MapIndexed[(#/.{\[Lambda]->\[Alpha]+n-First[#2]+1})&,Bs],-qs},1](*Function[n,]*)];
 Rdata=Function[{\[Alpha],k},
 CWrite["\n"];CWrite[statusline="Evaluating recurrence coefficients for power "<>ToString[\[Alpha]]<>"..."];
 rcoefs=Rcoefs[\[Alpha],k](*[n]*);
-tmp=OInverse[-rcoefs[[1]]];(*may be improved by dedicated calculation of inverse of bjf with 
+tmp=OInverse[-rcoefs[[1]],Fermatica`UseFermat->fflags[[2]]];(*may be improved by dedicated calculation of inverse of bjf with 
 off-diagonal terms calculated by iterative multiplication by -A^(-1)B*)
-{\[Alpha],k,Length@rcoefs-1(*=s from the paper*),Function@@({ODot[tmp,#]&/@Rest[rcoefs]/.n:>Slot[1]}),Flatten[#!*Coefficient[x2A,p[\[Alpha],#]]&/@Range[0,k],1]}
+{\[Alpha],k,Length@rcoefs-1(*=s from the paper*),Function@@({ODot[tmp,#,Fermatica`UseFermat->fflags[[3]]]&/@Rest[rcoefs]/.n:>Slot[1]}),Flatten[#!*Coefficient[y2A,p[\[Alpha],#]]&/@Range[0,k],1]}
 ]@@@fp;
 Rdata
 ,statusline]]
 
 
+Options[SeriesSolutionData]={Fermatica`UseFermat->False}
+
+
 (*Shortcuts*)
-SeriesSolutionData[M_?SquareMatrixQ,{x_,\[Infinity]}]:=
-Module[{z},ssd[-x^2M/.{x->1/z},z,1/x]];
-SeriesSolutionData[M_?SquareMatrixQ,{x_,x0_}]/;FreeQ[x0,x]:=
-Module[{z},ssd[M/.{x->z+x0},z,x-x0]]; 
-SeriesSolutionData[M_?SquareMatrixQ,{x_,y_}]:=
-Module[{z,xvar},xvar=x/.First[Solve[z==y,x]];ssd[M D[xvar,z]/.{x->xvar},z,y]];
+SeriesSolutionData[M_?SquareMatrixQ,{x_,\[Infinity]},OptionsPattern[]]:=
+Module[{z},ssd[-x^2M/.{x->1/z},z,1/x,OptionValue[Fermatica`UseFermat]]];
+SeriesSolutionData[M_?SquareMatrixQ,{x_,x0_},OptionsPattern[]]/;FreeQ[x0,x]:=
+Module[{z(*,ssd=If[TrueQ[Global`debug],Print["Debugging..."];ssd1,Libra`Private`ssd]*)},ssd[M/.{x->z+x0},z,x-x0,OptionValue[Fermatica`UseFermat]]]; 
+SeriesSolutionData[M_?SquareMatrixQ,{x_,y_},OptionsPattern[]]:=
+Module[{z,xvar(*,ssd=If[TrueQ[Global`debug],Print["Debugging..."];ssd1,Libra`Private`ssd]*)},xvar=x/.First[Solve[z==y,x]];ssd[M D[xvar,z]/.{x->xvar},z,y,OptionValue[Fermatica`UseFermat]]];
 
 
 ConstructSeriesSolution::usage="ConstructSeriesSolution[rdata_,{x_,o_}] makes a series solution out of rdata (see ?SeriesSolutionData for how to get rdata).\n    o \[LongDash] order in x.\nIf f=ConstructSeriesSolution[SeriesSolutionData[M,{x,0}],{x,o}], then one may check the equation by Factor[D[y,x]-M.y].\nOptions:\n    O\[Rule]True|False:False \[LongDash] whether to add O[x]^o\n    Split\[Rule]True|False:False determines whether to split contribution of different fractional powers.\n    Hold->f|False:False -- whether to wrap the leading powers. If f\[NotEqual]False is given, f[lp] is used instead of \!\(\*SuperscriptBox[\(x\), \(lp\)]\).\nSince Mathematica treats generalized power series poorly, using options O\[Rule]True and Split\[Rule]False simultaneously is not recommended. If option Split\[Rule]True is used,  ConstructSeriesSolution returns the result as a rectangular matrix n\[Times](n*|S|), with each square n\[Times]n block corresponding to a specific fractional power.";
