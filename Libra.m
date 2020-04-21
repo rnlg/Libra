@@ -444,7 +444,7 @@ unprotect[ds,HistoryIndex[ds]^=If[n>=0,HistoryIndex[ds]-n,-n];Print[Style["Histo
 If[OptionValue[HistoryChop],HistoryChop[ds]],Message[History::first]];
 
 
-Undo[ds_?DSystemQ,All]:=Undo[ds,-1]
+Undo[ds_?DSystemQ,All,opts:OptionsPattern[]]:=Undo[ds,-1,opts]
 
 
 Redo[ds_?DSystemQ,n_Integer:1]:=If[HistoryIndex[ds]<=Length@History[ds]-n,
@@ -2332,21 +2332,22 @@ SeriesSolutionData[M_?SquareMatrixQ,{x_,y_},OptionsPattern[]]:=
 Module[{z,xvar(*,ssd=If[TrueQ[Global`debug],Print["Debugging..."];ssd1,Libra`Private`ssd]*)},xvar=x/.First[Solve[z==y,x]];ssd[M D[xvar,z]/.{x->xvar},z,y,OptionValue[Fermatica`UseFermat]]];
 
 
-ConstructSeriesSolution::usage="ConstructSeriesSolution[rdata_,{x_,o_}] makes a series solution out of rdata (see ?SeriesSolutionData for how to get rdata).\n    o \[LongDash] order in x.\nIf f=ConstructSeriesSolution[SeriesSolutionData[M,{x,0}],{x,o}], then one may check the equation by Factor[D[y,x]-M.y].\nOptions:\n    O\[Rule]True|False:False \[LongDash] whether to add O[x]^o\n    Split\[Rule]True|False:False determines whether to split contribution of different fractional powers.\n    Hold->f|False:False -- whether to wrap the leading powers. If f\[NotEqual]False is given, f[lp] is used instead of \!\(\*SuperscriptBox[\(x\), \(lp\)]\).\nSince Mathematica treats generalized power series poorly, using options O\[Rule]True and Split\[Rule]False simultaneously is not recommended. If option Split\[Rule]True is used,  ConstructSeriesSolution returns the result as a rectangular matrix n\[Times](n*|S|), with each square n\[Times]n block corresponding to a specific fractional power.";
+ConstructSeriesSolution::usage="ConstructSeriesSolution[rdata_,{x_,o_}] makes a series solution out of rdata (see ?SeriesSolutionData for how to get rdata).\n    o \[LongDash] order in x.\nIf f=ConstructSeriesSolution[SeriesSolutionData[M,{x,0}],{x,o}], then one may check the equation by Factor[D[y,x]-M.y].\nOptions:\n    O\[Rule]y|True|False:False \[LongDash] whether to add O[x]^o\n    Split\[Rule]True|False:False determines whether to split contribution of different fractional powers. \n    Hold->f|False:False -- whether to wrap the leading powers. If f\[NotEqual]False is given, f[lp] is used instead of \!\(\*SuperscriptBox[\(x\), \(lp\)]\).\nSince Mathematica treats generalized power series poorly, using options O\[Rule]True and Split\[Rule]False simultaneously is not recommended. Instead, if Split\[Rule]False, use O\[Rule]y to replace fractional power of x with those of y. If option Split\[Rule]True is used,  ConstructSeriesSolution returns the result as a rectangular matrix n\[Times](n*|S|), with each square n\[Times]n block corresponding to a specific fractional power.";
 ConstructSeriesSolution::mixed="Since Mathematica treats generalized power series poorly, using options O\[Rule]True and Split\[Rule]False simultaneously is not recommended.";
 
 
 Options[ConstructSeriesSolution]={O->False,Split->False,Simplify->Factor};
 
 
-ConstructSeriesSolution[rdata_,{x_,o_}, OptionsPattern[]]:=Module[{c,n,sdata,sf=OptionValue[Simplify],Oo=TrueQ@OptionValue[O],So=TrueQ@OptionValue[Split](*,Ho=If[TrueQ@!OptionValue[Hold],x^#&,OptionValue[Hold]]*)},
-If[Oo&&!So,Message[ConstructSeriesSolution::mixed]];
-Oo=If[Oo,x^o O[x],0];
+ConstructSeriesSolution[rdata_,{x_,o_}, OptionsPattern[]]:=Module[{c,n,sdata,sf=OptionValue[Simplify],remainder,Oo=OptionValue[O],So=TrueQ@OptionValue[Split],z},
+If[TrueQ@Oo&&!So,Message[ConstructSeriesSolution::mixed]];
+Oo=Replace[Oo,{True->{z->x},y_:>{z->y}}];
+remainder=If[TrueQ@Not[Oo],0,x^o O[x]];
 sdata=(Function[{lp,llp,M,coefs,init},
 c[lp,0]=init;c[lp,n_Integer?Positive]:=(Quiet[Unset[c[n-M-1]]];(*clean up*)
 c[lp,n]=sf@Sum[Dot[coefs[n][[m]],c[lp,n-m]],{m,Min[M,n]}]);
-x^lp*(Dot[((Log[x]^#/#!)&/@Range[0,llp]),(Partition[#,Length@#/(llp+1)]&[Sum[c[lp,n]*x^n,{n,0,o}]])]+Oo)
-]@@@rdata);
+z^lp*(Dot[((Log[x]^#/#!)&/@Range[0,llp]),(Partition[#,Length@#/(llp+1)]&[Sum[c[lp,n]*x^n,{n,0,o}]])]+remainder)
+]@@@rdata)/.Oo;
 If[So,ArrayFlatten[{sdata}],Plus@@sdata]
 ]
 
