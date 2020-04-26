@@ -26,7 +26,7 @@ $LibraHomeDirectory=DirectoryName[$InputFileName];
 
 
 $LibraUseFermat=False;
-$LibraVersion="1.0\[Beta]";
+$LibraVersion="1.1beta";
 $LibraInputFileName=$InputFileName;
 
 
@@ -47,10 +47,14 @@ LargestSubsystemsIndices;
 EntangledBlocksIndices;
 DependentRowIndices;
 DependentColumnIndices;
+BlocksHierarchyIndices;
 OffDiagonalBlocksIndices;DiagonalBlocksIndices;
+ArrayCoefficientRules;
+CheckMerge;
+RelevantIndices;
 
 
-PickBasis;
+PickBasis;PickBasisIndices;
 
 
 ODot;OInverse;ODet;OKer;
@@ -109,13 +113,16 @@ VisTransformation;
 FactorOut;FactorDependence;
 
 
+ReduceFactors;
+
+
 GaussSolve;
 
 
 BlockTriangularToFuchsian;
 
 
-FuchsifyBlock;Fuchsify;
+FuchsifyBlock;FuchsifyDependent;Fuchsify;FuchsifyDependentBlocks;
 
 
 ToOneDE;ToCompanionDS;
@@ -140,7 +147,7 @@ TraditionalForm]\) is arbitrary (with convention II[{},x]=1). II[{\!\(\*Subscrip
 SeriesSolutionData;ConstructSeriesSolution;
 
 
-SpotCoefficients;
+SpotCoefficients;GetLcs;
 
 
 FactorLeadingLetter;FactorTrailingLetter;
@@ -171,6 +178,58 @@ NotationsBlock;
 
 
 Begin["`Private`"]
+
+
+System`GetFactor::usage="GetFactor[\!\(\*
+StyleBox[\"ex\", \"TI\"]\),\!\(\*
+StyleBox[\"patt\", \"TI\"]\)] returns a product of factors in \!\(\*
+StyleBox[\"ex\", \"TI\"]\), which match \!\(\*
+StyleBox[\"patt\", \"TI\"]\). E.g., GetFactor[\!\(\*
+StyleBox[\"ex\", \"TI\"]\),_?NumericQ] returns numeric factor."
+System`GetFactor[ex_List,pat_]:=System`GetFactor[#,pat]&/@ex;
+System`GetFactor[ex_,pat_]:=If[ex===0,1,Times@@Cases[Power@@@FactorList[ex],pat,{1}]]
+
+
+System`GetSimilarFactor::usage="GetSimilarFactor[{\!\(\*
+StyleBox[\"ex1\", \"TI\"]\),\!\(\*
+StyleBox[\"ex2\", \"TI\"]\),\!\(\*
+StyleBox[\"\[Ellipsis]\", \"TI\"]\)},\!\(\*
+StyleBox[\"patt\", \"TI\"]\)] returns \"common\" factors of \!\(\*
+StyleBox[\"ex1\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"ex2\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Ellipsis]\", \"TI\"]\), which match \!\(\*
+StyleBox[\"patt\", \"TI\"]\). E.g., GetSimilarFactors[\!\(\*
+StyleBox[\"{\", \"TI\"]\)\!\(\*
+StyleBox[\"ex1\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"ex2\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"\[Ellipsis]\", \"TI\"]\)\!\(\*
+StyleBox[\"}\", \"TI\"]\),_?NumericQ] returns \"common\" numeric factor.";
+System`GetSimilarFactor[ex_List,patt_]:=If[#==={},1,PolynomialGCD@@Numerator[#]/PolynomialGCD@@Denominator[#]]&[GetFactor[DeleteCases[ex,0],patt]]
+
+
+ArrayCoefficientRules::usage:="ArrayCoefficientRules[\!\(\*
+StyleBox[\"array\", \"TI\"]\),{\!\(\*SubscriptBox[
+StyleBox[\"x\", \"TI\"], 
+StyleBox[\"1\", \"TR\"]]\),\!\(\*SubscriptBox[
+StyleBox[\"x\", \"TI\"], 
+StyleBox[\"2\", \"TR\"]]\),\!\(\*
+StyleBox[\"\[Ellipsis]\", \"TR\"]\)}] does the same as CoefficientRules[\!\(\*
+StyleBox[\"array\", \"TI\"]\),{\!\(\*SubscriptBox[
+StyleBox[\"x\", \"TI\"], 
+StyleBox[\"1\", \"TR\"]]\),\!\(\*SubscriptBox[
+StyleBox[\"x\", \"TI\"], 
+StyleBox[\"2\", \"TR\"]]\),\!\(\*
+StyleBox[\"\[Ellipsis]\", \"TR\"]\)}] but not that stupid in threading through lists.";
+
+
+ArrayCoefficientRules[M_?ArrayQ,xs_,order_:"Lexicographic"]:=Module[{cr=CoefficientRules[M,xs],depth=ArrayDepth[M],keys},keys=First/@CoefficientRules[Plus@@(Times@@(xs^#)&/@DeleteDuplicates@Reap[Map[Sow@*First,cr,{depth+1}]][[2,1]]),xs,order];
+Function[key,key->Map[key/.#/.key->0&,cr,{depth}]]/@keys
+]
+ArrayCoefficientRules[M_,xs_]:=CoefficientRules[M,xs]
 
 
 System`GenCoefficientRules::usage="GenCoefficientRules[expr,vars] does the same as CoefficientRules[expr,vars], but applies also to noninteger powers.";
@@ -253,7 +312,7 @@ FCPrint[ex__]:=If[$Notebooks,Print[ex],Print@@(ToString/@{ex})];
 FCPrintTemporary[ex__]:=If[$Notebooks,PrintTemporary[ex],Print@@(ToString/@{ex})];
 
 
-FCPrint["\n******************** ",Style["Libra v"<>ToString[$LibraVersion],{Bold}]," ********************\nLibra (\:2696) is a package for the manipulation with differential systems.\n\[Copyright] Roman N. Lee, 2018.\nRead from: "<>$InputFileName<>"\nMD5: "<>ToString[FileHash[$InputFileName,"MD5"]]];
+FCPrint["\n******************** ",Style["Libra v"<>ToString[$LibraVersion],{Bold}]," ********************\nLibra (\:2696) is a package for the manipulation with differential systems.\n\[Copyright] Roman N. Lee, 2018-.\nRead from: "<>$InputFileName<>"\nMD5: "<>ToString[FileHash[$InputFileName,"MD5"]]];
 
 
 CWrite[msg_String]:=If[!$Notebooks,WriteString["stdout",msg]];
@@ -307,6 +366,9 @@ PolyJDSpace[m_,poly_,x_,a___]:=Libra`Private`obsolete[JDSpaceMod[m,x->poly,a],"P
 PolyJDData[m_,poly_,x_,a___]:=Libra`Private`obsolete[JDDataMod[m,x->poly,a],"PolyJDData[m,poly,x,\[Ellipsis]]"->"JDDataMod[m,x\[Rule]poly,\[Ellipsis]]"];
 
 
+todo["History: adding labels may be usefull"];
+
+
 History::usage="History[ds] is the central object. It is a list with the elements of the following form:
 {M,\"Operation\",extra1\[Rule]\[Ellipsis],\[Ellipsis]}";
 
@@ -321,6 +383,11 @@ History::last="Redo can not be done. Already at the end.";
 
 
 History::nothing="History change not required.";
+
+
+History::lbl1="No label \"`1`\" in the history.";
+History::lbl2="Label \"`1`\" is ahead. Use Redo to rewind.";
+History::lbl3="Label \"`1`\" is behind. Use Undo to rewind.";
 
 
 HistoryAppend::usage="HistoryAppend[ds,{M,{func,arg1,\[Ellipsis]},extra1\[Rule]\[Ellipsis],\[Ellipsis]}] adds the most recent entry to the history.";
@@ -344,7 +411,7 @@ HistoryAddExtra::usage="HistoryAddExtra[ds_Symbol,extra1\[Rule]\[Ellipsis],\[Ell
 Options[HistoryAddExtra]={Print->True};
 
 
-HistoryAddExtra[ds_Symbol?DSystemQ,rules__Rule,OptionsPattern[]]:=(
+HistoryAddExtra[ds_Symbol?DSystemQ,{rules__Rule},OptionsPattern[]]:=(
 unprotect[ds,History[ds]^=ReplacePart[History[ds],HistoryIndex[ds]->Join[DeleteCases[History[ds][[HistoryIndex[ds]]],Alternatives@@First/@{rules}->_],{rules}]]];
 If[OptionValue[Print],Print[Style["Added extra(s) "<>StringRiffle[ToString/@First/@{rules},","]<>" to current history entry.",Small]]];)
 
@@ -355,9 +422,18 @@ HistoryDeleteExtra::usage="HistoryDeleteExtra[ds_Symbol,extra1,\[Ellipsis]] remo
 Options[HistoryDeleteExtra]={Print->True};
 
 
-HistoryDeleteExtra[ds_Symbol?DSystemQ,extras___,OptionsPattern[]]:=(
+HistoryDeleteExtra[ds_Symbol?DSystemQ,{extras___},OptionsPattern[]]:=(
 unprotect[ds,History[ds]^=ReplacePart[History[ds],HistoryIndex[ds]->DeleteCases[History[ds][[HistoryIndex[ds]]],Alternatives@@extras->_]]];
 If[OptionValue[Print],Print[Style["Deleted extra(s) "<>StringRiffle[ToString/@extras,","]<>" from current history entry.",Small]]])
+
+
+HistoryAddLabel::usage="HistoryAddLabel[ds,label] add a label to the history."
+
+
+HistoryAddLabel[ds_?DSystemQ,label_String]:=HistoryAddExtra[ds,{Label->label},Print->False];
+
+
+HistoryLabels[ds_?DSystemQ]:=Cases[History[ds][[All,3;;]],(Label->label_):>label]
 
 
 Options[Undo]={HistoryChop->False};
@@ -365,19 +441,38 @@ Options[Undo]={HistoryChop->False};
 
 Undo[ds_?DSystemQ,n_Integer:1,OptionsPattern[]]:=If[HistoryIndex[ds]>n,
 unprotect[ds,HistoryIndex[ds]^=If[n>=0,HistoryIndex[ds]-n,-n];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]]<>".",Small]]];
-If[OptionValue[HistoryChop],HistoryChop[ds]];
-History[ds][[HistoryIndex[ds],1]],Message[History::first]];
+If[OptionValue[HistoryChop],HistoryChop[ds]],Message[History::first]];
 
 
-Undo[ds_?DSystemQ,All]:=Undo[ds,-1]
+Undo[ds_?DSystemQ,All,opts:OptionsPattern[]]:=Undo[ds,-1,opts]
 
 
 Redo[ds_?DSystemQ,n_Integer:1]:=If[HistoryIndex[ds]<=Length@History[ds]-n,
 unprotect[ds,
-HistoryIndex[ds]^=If[n>=0,HistoryIndex[ds]+n,Length@History[ds]+n+1];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]]<>".",Small]]];History[ds][[HistoryIndex[ds],1]],Message[History::last]];
+HistoryIndex[ds]^=If[n>=0,HistoryIndex[ds]+n,Length@History[ds]+n+1];Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]]<>".",Small]]],Message[History::last]];
 
 
 Redo[ds_?DSystemQ,All]:=Redo[ds,-1]
+
+
+Undo[ds_?DSystemQ,label_String,OptionsPattern[]]:=Module[{hi=HistoryIndex[ds],i},
+i=First/@Position[History[ds][[All,3;;]],Label->label];
+If[i==={},Message[History::lbl1,label];Return[]];i=First[i];
+If[i>hi,
+Message[History::lbl2,label],
+unprotect[ds,HistoryIndex[ds]^=i;Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]]<>".",Small]]];
+]
+]
+
+
+Redo[ds_?DSystemQ,label_String,OptionsPattern[]]:=Module[{hi=HistoryIndex[ds],i},
+i=First/@Position[History[ds][[All,3;;]],Label->label];
+If[i==={},Message[History::lbl1,label];Return[]];i=First[i];
+If[i<hi,
+Message[History::lbl3,label],
+unprotect[ds,HistoryIndex[ds]^=i;Print[Style["History length for "<>SymbolName[ds]<>" is "<>ToString[HistoryIndex[ds]]<>".",Small]]];
+]
+]
 
 
 HistoryRecall[ds_?DSystemQ,n_Integer:1,OptionsPattern[]]:=If[HistoryIndex[ds]>n,
@@ -394,60 +489,12 @@ HistoryChop::usage="HistoryChop[ds_] chops off forward entries in history. Use b
 HistoryChop[ds_?DSystemQ]:=(unprotect[ds,History[ds]^=Take[History[ds],HistoryIndex[ds]]];HistoryIndex[ds])
 
 
-HistoryConsolidate::usage="HistoryConsolidate[ds] consolidates history. ";
-
-
-HistoryConsolidate::obsolete="HistoryConsolidate is supreceeded by OverallTransformation. The latter returns not only the transformation matrix, but also change of variables and introduced notations.\n\
+HistoryConsolidate::usage="HistoryConsolidate[ds] consolidates history.\n\
+HistoryConsolidate is superceeded by OverallTransformation. The latter returns not only the transformation matrix, but also change of variables and introduced notations.\n\
 NB: HistoryConsolidate[ds] is now OverallTransformation[ds][Transform].";
-HistoryConsolidate::err="Undo history entry is met.";
-HistoryConsolidate::chop="Did not change history to avoid overwriting forward entries. Use HistoryChop[`1`] first."
 
 
-Options[HistoryConsolidate]={(*(*Deleted 02.12.2019*)HistoryChop\[Rule]False,HistoryAppend\[Rule]False,(*/Deleted 02.12.2019*)*)
-Inverse->False(*whether to calculate inverse transformation matrix*)
-};
-
-
-HistoryConsolidate[ds_?DSystemQ,OptionsPattern[]]:=Module[{T=IdentityMatrix[Length@ds],Ti=IdentityMatrix[Length@ds],i,ii,t,start,end,val,old,new,subs,inv=OptionValue[Inverse]},
-(*First, calculate transformation. We move in history up to the first Undo[ds,All] or first entry*)
-(*starting index: either 1 or index of first full undo*)
-start=Position[Take[History[ds],HistoryIndex[ds]],{_,{Undo,ds,_}|{NewDSystem,ds,__},___},{1}][[-1,1]];
-val=History[ds][[start,1]];
-old=new=subs=Keys[val];
-end=HistoryIndex[ds];
-CWrite["\n["<>ToString[end-start]<>"|"];
-FCMonitor[Do[
-CWrite["."];
-Replace[History[ds][[i,2]],{
-{Transform,ds,tt_?SquareMatrixQ}:>(T=ODot[T,tt];If[inv,Ti=ODot[OInverse[tt],Ti]]),
-{Transform,ds,{tt_?SquareMatrixQ,tti_?SquareMatrixQ}}:>(T=ODot[T,tt];If[inv,Ti=ODot[tti,Ti]]),
-{Transform,ds,tt_?SquareMatrixQ,ii_}:>(T[[All,ii]]=ODot[T[[All,ii]],tt];If[inv,Ti[[ii]]=ODot[OInverse[tt],Ti[[ii]]]]),
-{Transform,ds,{tt_?SquareMatrixQ,tti_?SquareMatrixQ},ii_}:>(T[[All,ii]]=ODot[T[[All,ii]],tt];If[inv,Ti[[ii]]=ODot[tti,Ti[[ii]]]]),
-{ChangeVar,ds,tt_,nw_,___}:>(T=Factor[T/.tt];If[inv,Ti=Factor[Ti/.tt]];subs=Factor[subs/.tt];new=nw),
-{Factor,ds}:>(T=Factor[T];If[inv,Ti=Factor[Ti]]),
-{Simplify,ds,tt___}:>(T=Simplify[T,tt];If[inv,Ti=Simplify[Ti,tt]];subs=Simplify[subs,tt]),
-{Map,f_,ds,tt___}:>(T=Map[f,T,tt];If[inv,Ti=Map[f,Ti,tt]];),
-{MapAt,f_,ds,tt___}:>(T=MapAt[f,T,tt];If[inv,Ti=MapAt[f,Ti,tt]]),
-{Undo,__}:>(Message[HistoryConsolidate::err];Abort[])
-}
-],
-{i,start+1,end}],
-Overlay[{ProgressIndicator[i,{start,end}],ToString[i-start]<>"/"<>ToString[end-start]},Alignment->Center]];
-CWrite["]"];
-T=Fold[QuolyMod[#,#2]&,T,Notations[ds]];
-If[inv,Ti=Fold[QuolyMod[#,#2]&,Ti,Notations[ds]]];
-(*(*Deleted 02.12.2019*)If[TrueQ@OptionValue[HistoryAppend],
-If[TrueQ@OptionValue[HistoryChop]||Length@History[ds]\[LessEqual]HistoryIndex[ds],
-HistoryAppend[ds,{val,{Undo,ds,end-start}}];
-ChangeVar[ds,Thread[old\[Rule]subs],new];
-If[inv,
-Transform[ds,{T,Ti}],
-Transform[ds,T]
-],
-Message[HistoryConsolidate::chop,ds]
-]];(*/Deleted 02.12.2019*)*)
-T
-]
+HistoryConsolidate[ds_?DSystemQ,opts:OptionsPattern[]]:=OverallTransformation[ds,opts][Transform];
 
 
 todo["HistoryConsolidate: make the procedure more flexible to allow for replacing parts of the history, both idex- and labels-based. (labels probably via HistoryAddExtra)"];
@@ -456,16 +503,28 @@ todo["HistoryConsolidate: make the procedure more flexible to allow for replacin
 todo["Think about better strategy of option UseFermat"];
 
 
-OverallTransformation::usage="OverallTransformation[ds] calculates the overall transformation of the system: the transformation matrix, variables change, and introduced notations. It returns the association with entries Transform (for transformation matrix), ChangeVar (for variables change), and Notations (for introduced notations).";
+OverallTransformation::usage="OverallTransformation[ds] calculates the overall transformation of the system: the transformation matrix, variables change, and introduced notations. It returns the association with entries Transform (for transformation matrix), ChangeVar (for variables change), and Notations (for introduced notations).\n\
+NB: Option UseFermat can be True, False, or  \"\!\(\*
+StyleBox[\"abc\",\nFontSlant->\"Italic\"]\)\", where \!\(\*
+StyleBox[\"abc\",\nFontSlant->\"Italic\"]\) is three-digit binary number, \!\(\*
+StyleBox[\"a\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"=\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"1\",\nFontSlant->\"Italic\"]\), \!\(\*
+StyleBox[\"b\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"=\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"1\",\nFontSlant->\"Italic\"]\), \!\(\*
+StyleBox[\"c\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"=\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"1\",\nFontSlant->\"Italic\"]\) instructs to use Fermat for OInverse, ODot, and OQuoluMod, respectively.";
 
 
 OverallTransformation::err="Undo history entry is met.";
 
 
-Options[OverallTransformation]={Inverse->False};
+Options[OverallTransformation]={Inverse->False,Fermatica`UseFermat->False};
 
 
-OverallTransformation[ds_?DSystemQ,OptionsPattern[]]:=Module[{T=IdentityMatrix[Length@ds],Ti=IdentityMatrix[Length@ds],i,ii,t,start,end,val,old,new,subs,inv=OptionValue[Inverse]},
+OverallTransformation[ds_?DSystemQ,OptionsPattern[]]:=Module[{T=IdentityMatrix[Length@ds],Ti=IdentityMatrix[Length@ds],i,ii,t,start,end,val,old,new,subs,inv=OptionValue[Inverse],fflags=Replace[IntegerDigits[Replace[OptionValue[Fermatica`UseFermat],{False|None->0,True|All->7,f_String:>FromDigits[f,2]}],2,3],{1->True,0->False},{1}]},
 (*First, calculate transformation. We move in history up to the first Undo[ds,All] or first entry*)
 (*starting index: either 1 or index of first full undo*)
 start=Position[Take[History[ds],HistoryIndex[ds]],{_,{Undo,ds,_}|{NewDSystem,ds,__},___},{1}][[-1,1]];
@@ -476,10 +535,10 @@ CWrite["\n["<>ToString[end-start]<>"|"];
 FCMonitor[Do[
 CWrite["."];
 Replace[History[ds][[i,2]],{
-{Transform,ds,tt_?SquareMatrixQ}:>(T=ODot[T,tt];If[inv,Ti=ODot[OInverse[tt],Ti]]),
-{Transform,ds,{tt_?SquareMatrixQ,tti_?SquareMatrixQ}}:>(T=ODot[T,tt];If[inv,Ti=ODot[tti,Ti]]),
-{Transform,ds,tt_?SquareMatrixQ,ii_}:>(T[[All,ii]]=ODot[T[[All,ii]],tt];If[inv,Ti[[ii]]=ODot[OInverse[tt],Ti[[ii]]]]),
-{Transform,ds,{tt_?SquareMatrixQ,tti_?SquareMatrixQ},ii_}:>(T[[All,ii]]=ODot[T[[All,ii]],tt];If[inv,Ti[[ii]]=ODot[tti,Ti[[ii]]]]),
+{Transform,ds,tt_?SquareMatrixQ}:>(T=ODot[T,tt,Fermatica`UseFermat->fflags[[2]]];If[inv,Ti=ODot[OInverse[tt,Fermatica`UseFermat->fflags[[1]]],Ti,Fermatica`UseFermat->fflags[[2]]]]),
+{Transform,ds,{tt_?SquareMatrixQ,tti_?SquareMatrixQ}}:>(T=ODot[T,tt,Fermatica`UseFermat->fflags[[2]]];If[inv,Ti=ODot[tti,Ti,Fermatica`UseFermat->fflags[[2]]]]),
+{Transform,ds,tt_?SquareMatrixQ,ii_}:>(T[[All,ii]]=ODot[T[[All,ii]],tt,Fermatica`UseFermat->fflags[[2]]];If[inv,Ti[[ii]]=ODot[OInverse[tt,Fermatica`UseFermat->fflags[[1]]],Ti[[ii]],Fermatica`UseFermat->fflags[[2]]]]),
+{Transform,ds,{tt_?SquareMatrixQ,tti_?SquareMatrixQ},ii_}:>(T[[All,ii]]=ODot[T[[All,ii]],tt,Fermatica`UseFermat->fflags[[2]]];If[inv,Ti[[ii]]=ODot[tti,Ti[[ii]],Fermatica`UseFermat->fflags[[2]]]]),
 {ChangeVar,ds,tt_,nw_,___}:>(T=Factor[T/.tt];If[inv,Ti=Factor[Ti/.tt]];subs=Factor[subs/.tt];new=nw),
 {Factor,ds}:>(T=Factor[T];If[inv,Ti=Factor[Ti]]),
 {Simplify,ds,tt___}:>(T=Simplify[T,tt];If[inv,Ti=Simplify[Ti,tt]];subs=Simplify[subs,tt]),
@@ -491,8 +550,12 @@ Replace[History[ds][[i,2]],{
 {i,start+1,end}],
 Overlay[{ProgressIndicator[i,{start,end}],ToString[i-start]<>"/"<>ToString[end-start]},Alignment->Center]];
 CWrite["]"];
-T=Fold[QuolyMod[#,#2]&,T,Notations[ds]];
-If[inv,Ti=Fold[QuolyMod[#,#2]&,Ti,Notations[ds]]];
+i=1;end=Length@Notations[ds];If[inv,end=2*end];
+FCMonitor[
+T=Fold[OQuolyMod[i++;#,#2,Fermatica`UseFermat->fflags[[3]]]&,T,Notations[ds]];
+If[inv,Ti=Fold[OQuolyMod[i++;#,#2,Fermatica`UseFermat->fflags[[3]]]&,Ti,Notations[ds]]];,
+Overlay[{ProgressIndicator[i,{0,end}],Style["modding notations...",Tiny]},Alignment->Center]
+];
 <|Transform->If[inv,{T,Ti},T],ChangeVar->{Thread[old->subs],new},Notations->Notations[ds],In->val,Out->ds[]|>
 ]
 
@@ -550,19 +613,7 @@ NewDSystem::error="Something went wrong. Aborting...";
 Options[NewDSystem]={Print->True};
 
 
-Notations::usage="Notations[ds] is a list of notations used.\n\
-Notations[ds,{ii,jj}] list of notations met in ds[[ii,jj]]\n\
-Notations[ds,ii] is a shortcut for Notations[ds,{ii,ii}]."
-
-
-Notations[ds_?DSystemQ]:={};
-
-
 done["Think of maybe using List over Association for Notations. Easier to copy then."];
-
-
-Notations[ds_?DSystemQ,ii_:(_List|_Span)]:=Notations[ds,{ii,ii}]
-Notations[ds_?DSystemQ,{ii:(_List|_Span),jj:(_List|_Span)}]:=Module[{ss=ds[[ii,jj]]},Select[Notations[ds],Not[FreeQ[ss,First@#]]&]]
 
 
 NewDSystem[ds_,def_Rule,opts:OptionsPattern[]]:=NewDSystem[ds,{def},opts]
@@ -573,7 +624,7 @@ Check[
 History[ds]^={};HistoryIndex[ds]^=0;
 DSystemQ[ds]^=True;
 (*Modified 17.07.2019*)(*(*Deleted 17.07.2019*)Notations[ds]^=Association[]No(*/Deleted 17.07.2019*)*)
-Notations[ds]:={};
+Notations[ds]^={};
 (*/Modified 17.07.2019*)
 (*will be used in arguments patterns*)l=Length/@Last/@defs;
 If[!(SameQ@@l),Message[NewDSystem::size]];
@@ -588,6 +639,18 @@ If[TrueQ@OptionValue[Print],Print["Successfully created differential system for 
 ds::usage="Differential system for "<>ToString@Length@ds<>" functions of "<>StringJoin@@Riffle[ToString/@First/@defs,","]<>".";
 
 ]
+
+
+Notations::usage="Notations[ds] is a list of notations used.\n\
+Notations[ds,{ii,jj}] list of notations met in ds[[ii,jj]]\n\
+Notations[ds,ii] is a shortcut for Notations[ds,{ii,ii}].";
+
+
+Notations[ds_?DSystemQ]:={};
+
+
+Notations[ds_?DSystemQ,ii:{__Integer}|_Span]:=Notations[ds,{ii,ii}]
+Notations[ds_?DSystemQ,{ii:{__Integer}|_Span,jj:{__Integer}|_Span}]:=Function[ss,Select[Notations[ds],Not[FreeQ[ss,First[#]]]&]][ds[[ii,jj]]];
 
 
 redefineOperations[ds_Symbol]:=Module[{t1,i,keys,l},
@@ -937,6 +1000,14 @@ Scan[(If[MatrixRank[AppendTo[basis,#]]>r,r++,basis=Most[basis]])&,vectors];basis
 ]
 
 
+PickBasisIndices::usage="PickBasisIndices[{v1,v2,...}] constructs basis in linear span of vectors v1,v2,\[Ellipsis]. Basically, it removes all dependent vectors from the given list.";
+
+
+PickBasisIndices[vectors:{__List}]:=Module[{r=0,basis={},inds={}},
+MapIndexed[(If[MatrixRank[AppendTo[basis,#]]>r,r++;AppendTo[inds,First[#2]],basis=Most[basis]])&,vectors];inds
+]
+
+
 PickBasisMod::usage="PickBasisMod[\!\(\*
 StyleBox[\"{\", \"TI\"]\)\!\(\*
 StyleBox[SubscriptBox[
@@ -1254,7 +1325,14 @@ StyleBox[\"x\", \"TI\"]\)] constructs a projector \!\(\*
 StyleBox[\"P\", \"TI\"]\) with prescribed image and coimage.";
 
 
-Projector[u_,v_]:=Module[{ut=Transpose@u},Check[ODot[ut,OInverse@Dot[v,ut],v],ConstantArray[0,{Length@First[v],Length@ut}]]]
+Options[Projector]={Fermatica`UseFermat->False}
+
+
+Projector[u_,v_,OptionsPattern[]]:=Module[{ut=Transpose@u,of=Fermatica`UseFermat,ovf=OptionValue[Fermatica`UseFermat]},
+Check[
+ODot[ut,OInverse[ODot[v,ut,of->ovf],of->ovf],v,of->ovf],
+ConstantArray[0,{Length@First[v],Length@ut}]]
+]
 
 
 ProjectorMod::usage="ProjectorMod[\!\(\*
@@ -1612,7 +1690,10 @@ EFormQ[m_,\[Epsilon]_]:=FreeQ[Factor[m/\[Epsilon]],\[Epsilon]]
 TClosure::usage="TClosure[m_?MatrixQ] calculates transitive closure of the relation given by m.\n  Try\n(MatrixPlot/@{#,TClosure[#]})&[{{1,0,0,0},{1,0,0,0},{0,1,1,1},{0,0,1,0}}]";
 
 
-TClosure[m_?SquareMatrixQ]:=tclosure[m,1]
+Options[TClosure]={Print->False};
+
+
+TClosure[m_?SquareMatrixQ,OptionsPattern[]]:=tclosure[m,1]
 
 
 tclosure::usage="tclosure[m_,d:(1|0):1] calculates transitive closure of the relation given by m. If the second argument is 0, the relation is symmetrized.\n  Try\n(MatrixPlot/@{#,TClosure[#]})&[{{1,0,0,0},{1,0,0,0},{0,1,1,1},{0,0,1,0}}]";
@@ -1629,13 +1710,12 @@ ReplacePart[ConstantArray[0,Take[Dimensions@m,2]],List@@@Flatten[paths]->1]
 ]
 
 
-TClosure[ds_?DSystemQ]:=Module[{tc,lc},
+TClosure[ds_?DSystemQ,OptionsPattern[]]:=Module[{tc,lc},
 tc=TClosure/.Drop[History[ds][[HistoryIndex[ds]]],2];
 If[tc===TClosure,
 lc=Transpose[Values[ds[[]]],{3,1,2}];
 tc=tclosure[lc,1,Except[{0..}]];
-HistoryAddExtra[ds,TClosure->tc],
-Print[Style["Read TClosure from extras.",Small]]
+HistoryAddExtra[ds,{TClosure->tc},Print->OptionValue[Print]],If[OptionValue[Print],Print[Style["Read TClosure from extras.",Small]]]
 ];
 tc
 ]
@@ -1768,6 +1848,136 @@ DependentColumnIndices[m_?SquareMatrixQ,args__]:=DependentRowIndices[Transpose[m
 DependentColumnIndices[ds_?DSystemQ,rows_,tc:(False):False]:=DependentColumnIndices[TClosure[ds],rows,True]
 
 
+BlocksHierarchyIndices::usage="BlocksHierarchyIndices[\!\(\*
+StyleBox[\"matrix\", \"TI\"]\),\!\(\*
+StyleBox[\"indices\", \"TI\"]\)] gives a hierarchy of blocks depending on \!\(\*
+StyleBox[\"indices\", \"TI\"]\). it has the form of list {0\[Rule]{\!\(\*
+StyleBox[\"block01\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"block02\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"...\", \"TI\"]\)},1\[Rule]{\!\(\*
+StyleBox[\"block11\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"block12\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"...\", \"TI\"]\)},\[Ellipsis]}. \"0\" corresponds to the highest blocks, \"1\" \[LongDash] to the block immediately below the highest ones, etc.";
+
+
+Options[BlocksHierarchyIndices]={DependentRowIndices->True};
+
+
+BlocksHierarchyIndices[m_?SquareMatrixQ,span:({__Integer}|_Span):Span[1,All],tc:(True|False):False,OptionsPattern[]]:=Module[{cl,minds,blocks,levels,lb,i,j,high=spantolist[span,Length@m]},
+If[tc,cl=m,cl=TClosure[m]];
+If[OptionValue[DependentRowIndices],minds=DependentRowIndices[cl,high,True],minds=high];(*indices in the original matrix Thread[Range[Length@minds]\[Rule]minds] gives the rules*);
+cl=cl[[minds,minds]](*tclosure of submatrix*);
+blocks=EntangledBlocksIndices[cl];
+lb=Length@blocks;
+levels=ConstantArray[0,lb];
+(cl=cl[[#,#]])&[First/@blocks];(*block-wise closure, should be lower-triangular*)
+Do[If[cl[[i,j]]===1,levels[[j]]=Max[levels[[j]],levels[[i]]+1]],{i,lb,1,-1},{j,i-1}];
+SortBy[GroupBy[Transpose[{levels,Replace[blocks,Thread[Range[Length@minds]->minds],{2}]}],First->Last]/.Association->List,First]
+]
+
+
+BlocksHierarchyIndices[ds_?DSystemQ,span_,tc:(False):False]:=BlocksHierarchyIndices[TClosure[ds],span,True]
+
+
+CheckMerge::usage="CheckMerge[{\!\(\*SubscriptBox[
+StyleBox[\"M\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"rg\", \"TI\"], \(1\)]\)},{\!\(\*SubscriptBox[
+StyleBox[\"M\", \"TI\"], \(2\)]\),\!\(\*SubscriptBox[
+StyleBox[\"rg\", \"TI\"], \(2\)]\)},\[Ellipsis],\!\(\*
+StyleBox[\"s\", \"TI\"]\):Automatic] merges submatrices \!\(\*SubscriptBox[
+StyleBox[\"M\", \"TI\"], \(k\)]\) into one provided they do not contradict each other.  The range \!\(\*SubscriptBox[
+StyleBox[\"rg\", \"TI\"], \(k\)]\) defines indices of the submatrix \!\(\*SubscriptBox[
+StyleBox[\"M\", \"TI\"], \(k\)]\) in the resulting matrix, and \!\(\*
+StyleBox[\"s\", \"TI\"]\) defines the size of the overall matrix.\n\
+The range \!\(\*
+StyleBox[\"rg\", \"TI\"]\) can be either of the form used to indicate parts (e.g., {1,3,4} or 2;;-1), or a pair of expressions of the same form (\!\(\*
+StyleBox[\"{\", \"TI\"]\)\!\(\*
+StyleBox[\"{\", \"TI\"]\)\!\(\*
+StyleBox[\"1\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"3\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"4\", \"TI\"]\)\!\(\*
+StyleBox[\"}\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"{\", \"TI\"]\)\!\(\*
+StyleBox[\"3\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"5\", \"TI\"]\)\!\(\*
+StyleBox[\"}\", \"TI\"]\)\!\(\*
+StyleBox[\"}\", \"TI\"]\),\!\(\*
+StyleBox[\"{\", \"TI\"]\)\!\(\*
+StyleBox[\"{\", \"TI\"]\)\!\(\*
+StyleBox[\"1\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"3\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"4\", \"TI\"]\)\!\(\*
+StyleBox[\"}\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"3\", \"TI\"]\)\!\(\*
+StyleBox[\";;\", \"TI\"]\)\!\(\*
+StyleBox[\"5\", \"TI\"]\)\!\(\*
+StyleBox[\"}\", \"TI\"]\),\!\(\*
+StyleBox[\"{\", \"TI\"]\)\!\(\*
+StyleBox[\"1\", \"TI\"]\)\!\(\*
+StyleBox[\";;\", \"TI\"]\)\!\(\*
+StyleBox[\"5\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"3\", \"TI\"]\)\!\(\*
+StyleBox[\";;\", \"TI\"]\)\!\(\*
+StyleBox[\"5\", \"TI\"]\)\!\(\*
+StyleBox[\"}\", \"TI\"]\)).\n\
+The size \!\(\*
+StyleBox[\"s\", \"TI\"]\) can be either Automatic, or \!\(\*
+StyleBox[\"nrc\", \"TI\"]\), or \!\(\*
+StyleBox[\"{\", \"TI\"]\)\!\(\*
+StyleBox[\"nr\", \"TI\"]\)\!\(\*
+StyleBox[\",\", \"TI\"]\)\!\(\*
+StyleBox[\"nc\", \"TI\"]\)\!\(\*
+StyleBox[\"}\", \"TI\"]\)";
+
+
+Options[CheckMerge]={Undefined->0,Check->SameQ};
+CheckMerge::dim="Can not calculate the size of the resulting matrix.";
+CheckMerge::dims="Dimensions of some matrices do not match the embedding ranges.";
+CheckMerge::check="Submatrices are inconsistent.";
+CheckMerge[parts:({_?MatrixQ,{___Integer}|_Span|{{___Integer}|_Span,{___Integer}|_Span}}..),s:(Automatic|_Integer|{_Integer,_Integer}):Automatic,OptionsPattern[]]:=Module[
+{Mlist,rlist,dims,Mres,check=OptionValue[Check]},
+{Mlist,rlist}=Transpose[{parts}];
+rlist=Replace[rlist,rl:{___Integer}|_Span:>{rl,rl},{1}];
+If[s===Automatic,
+(*We can define dimensions of the resulting matrix only if there are no spans with arguments being negative integers or All*)
+If[
+FreeQ[rlist,Span[_,All|_?Negative]|Span[_?Negative,_]],
+dims=Max[Last/@#]&/@Transpose[rlist],Message[CheckMerge::dim];Return[$Failed]]
+,
+dims=Replace[s,{n_Integer:>{n,n}}]
+];
+rlist=Replace[Transpose[{#,dims}],{{Span[a_Integer,b_Integer],l_}:>Range[Mod[a+l+1,l+1],Mod[b+l+1,l+1]],{Span[a_Integer,All],l_}:>Range[Mod[a+l+1,l+1],l],{list_,l_}:>list},{1}]&/@rlist;
+(*Check the consistency of Subscript[M, k] and Subscript[r, k]*)
+If[Dimensions/@Mlist=!=Map[Length,rlist,{2}],Message[CheckMerge::dims];Return[$Failed]];
+Mres=ConstantArray[Undefined,dims];
+Mres=Catch[
+MapThread[(Mres[[Sequence@@#1]]=MapThread[If[check[#1,#2]||#1===Undefined,#2,Throw[$Failed]]&,{Mres[[Sequence@@#1]],#2},2];)&,{rlist,Mlist}];
+Replace[Mres,Undefined->OptionValue[Undefined],{2}]
+]
+]
+
+
+RelevantIndices::usage="Given a transformation \!\(\*
+StyleBox[\"t\", \"TI\"]\), RelevantIndices[\!\(\*
+StyleBox[\"t\", \"TI\"]\)] gives a list of indices where \!\(\*
+StyleBox[\"t\", \"TI\"]\) differs from identity matrix."
+
+
+RelevantIndices[t_?SquareMatrixQ]:=Flatten[Union[Position[#,Except[{0..}],{1},Heads->False],Position[Transpose@#,Except[{0..}],{1},Heads->False]]&[t-IdentityMatrix[Length@t]]]
+
+
 $LibraUseFermat::error="$LibraUseFermat can be set either to False or to True. The latter case requires Fermatica\` to be in the $ContextPath.";
 $LibraUseFermat/:Set[$LibraUseFermat,val_]:=If[(val===False)||(val===True&&MemberQ[$ContextPath,"Fermatica`"]),OwnValues[$LibraUseFermat]={HoldPattern[$LibraUseFermat]:>val};val,Message[$LibraUseFermat::error];$LibraUseFermat];
 
@@ -1778,15 +1988,12 @@ OQuolyMod::usage="OQuolyMod[quoly,poly,x] gives the \"remainder\" of the rationa
 Options[OQuolyMod]={Fermatica`UseFermat->False};
 
 
-done["Remove obsolete definitionfor OQuolyMod[quoly_,rule:_Rule|_RuleDelayed]"];
-
-
 OQuolyMod[quoly_,poly:Except[_Rule|{___Rule}],x_Symbol,opts:OptionsPattern[]]:=OQuolyMod[quoly,x->poly,opts]
 
 
 OQuolyMod[quoly_,list_List,opts:OptionsPattern[]]:=Fold[OQuolyMod[#1,#2,opts]&,quoly,list];
 OQuolyMod[quoly_,x_Symbol->poly_,OptionsPattern[]]:=If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],
-Replace[CheckAbort[FQuolyMod[quoly,poly,x],$Failed],$Failed:>(Print["OQuolyMod: resorting to Mathematica\[Ellipsis]"];QuolyMod[quoly,x->poly])],
+Replace[CheckAbort[FQuolyMod[quoly,x->poly],$Failed],$Failed:>(Print["OQuolyMod: resorting to Mathematica\[Ellipsis]"];QuolyMod[quoly,x->poly])],
 QuolyMod[quoly,x->poly]]
 
 
@@ -1803,11 +2010,8 @@ Options[ODot]={Fermatica`UseFermat->False,Together->True};
 
 
 ODot[exs__,OptionsPattern[]]:=If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],
-Replace[CheckAbort[FDot[exs],$Failed],$Failed:>(Print["ODot: resorting to Mathematica\[Ellipsis]"];If[OptionValue[Together],Together,Identity]@Dot[exs])],
+Replace[CheckAbort[Fermatica`FDot[exs],$Failed],$Failed:>(Print["ODot: resorting to Mathematica\[Ellipsis]"];If[OptionValue[Together],Together,Identity]@Dot[exs])],
 If[OptionValue[Together],Together,Identity]@Dot[exs]];
-
-
-FDot[exs__]:=Fermatica`FDot[exs](*FCStaticMonitor[Fermatica`FDot[exs],Style["Executing Fermatica`FDot...",Tiny],1]*)
 
 
 ODet::usage="ODet[m1] is an optimized version of Det."
@@ -1817,11 +2021,8 @@ Options[ODet]={Fermtica`UseFermat->False};
 
 
 ODet[m_?SquareMatrixQ,OptionsPattern[]]:=If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],
-Replace[CheckAbort[FDet[m],$Failed],$Failed:>(Print["ODet: resorting to Mathematica\[Ellipsis]"];Det[m])],
+Replace[CheckAbort[Fermatica`FDet[m],$Failed],$Failed:>(Print["ODet: resorting to Mathematica\[Ellipsis]"];Det[m])],
 Det[m]];
-
-
-FDet[m__]:=Fermatica`FDet[m](*FCStaticMonitor[Fermatica`FDet[m],Style["Executing Fermatica`FDet...",Tiny],1]*)
 
 
 OKer::usage="OKer[m1] is an optimized version of NullSpace."
@@ -1831,13 +2032,10 @@ Options[OKer]={Fermatica`UseFermat->False};
 
 
 OKer[m_?MatrixQ,OptionsPattern[]]:=
-Replace[If[$LibraUseFermat&&OptionValue[Fermtica`UseFermat],
-CheckAbort[FKer[m],Print["ODet: resorting to Mathematica\[Ellipsis]"];ker[m]],
+Replace[If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],
+CheckAbort[Fermatica`FKer[m],Print["ODet: resorting to Mathematica\[Ellipsis]"];ker[m]],
 ker[m]],
 {{0..}}->{}];
-
-
-FKer[m_]:=Fermatica`FKer[m](*FCStaticMonitor[Fermatica`FKer[m],Style["Executing Fermatica`FKer...",Tiny],1]*)
 
 
 OInverse::usage="OInverse[m] is an optimized version of Inverse[m] for block-triangular matrices.";
@@ -1848,18 +2046,17 @@ Options[OInverse]={Print->False,Fermatica`UseFermat->False};
 
 OInverse[m_?SquareMatrixQ,OptionsPattern[]]:=Module[{s=TClosure[m],print=TrueQ@OptionValue[Print],diag,dep,mi=IdentityMatrix[Length@m],stat=""},
 (*invert diagonal*)
+If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],Return[Fermatica`FInverse[m]]];
 If[print,FCMonitor,#&][
 stat="Finding diagonal blocks\[Ellipsis]";
 If[print,CWrite["\n"];CWrite[stat]];
 diag=EntangledBlocksIndices[s,True];
 (stat="Inverting diagonal elements with indices "<>ToString[#];
 If[print,CWrite["\n"];CWrite[stat]];
-mi[[#,#]]=If[$LibraUseFermat&&OptionValue[Fermatica`UseFermat],
-Replace[CheckAbort[Fermatica`FInverse[#],$Failed],$Failed:>(Print["Inverse: resorting to Mathematica\[Ellipsis]"];Together[Inverse[#]])],
-Together[Inverse[#]]]&@m[[#,#]])&/@diag;
+mi[[#,#]]=Together[Inverse[#]]&@m[[#,#]])&/@diag;
 (dep=Complement[DependentRowIndices[s,#,True],#];stat="Inverting off-diagonal elements "<>ToString[dep]<>" on rows "<>ToString[#];
 If[print,CWrite["\n"];CWrite[stat]];
-mi[[#,dep]]=-ODot[mi[[#,#]],ODot[m[[#,dep]],mi[[dep,dep]]]])&/@diag;
+mi[[#,dep]]=-ODot[mi[[#,#]],m[[#,dep]],mi[[dep,dep]],Fermatica`UseFermat->False])&/@diag;
 ,
 stat];
 Return[mi]
@@ -1873,7 +2070,7 @@ Options[OMatrixExp]={Fermatica`UseFermat->False,EValues->Automatic};
 
 
 OMatrixExp[A_,OptionsPattern[]]:=Module[{n=Length@A,resolvent,a,statusline="",evs,resexp},
-Monitor[
+FCMonitor[
 statusline="Calculating eigenvalues...";
 evs=DeleteDuplicates@Replace[OptionValue[EValues],Automatic:>EValues[A]];
 statusline="Calculating resolvent...";
@@ -2064,22 +2261,34 @@ SeriesCoefficientMod[ex_,{x_->den_,o_}]:=Replace[Cases[SeriesRulesMod[ex,{x->den
 SeriesCoefficientMod[ex_,{x_,o_}]:=SeriesCoefficientMod[ex,{x->(x/.$LibraNotations),o}]
 
 
-SeriesSolutionData::usage="SeriesSolutionData[M,{x,x0}] constructs data for generalized power series solution of the system \[PartialD]U=M\[InvisibleComma]U.\nGeneralized form: SeriesSolutionData[M,{x,y(x),n}].\n    \[FilledSmallCircle] M should be rational.\n    \[FilledSmallCircle] M should be Fuchsian at x=x0.\n    \[FilledSmallCircle] Residue A at x=x0 should be free of resonances.\n    \[FilledSmallCircle] SeriesSolutionData returns data U with the asymptotics (x-x0)^A.\nReturned data has the form of a list with each element having the form {\[Lambda],\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\),s,{\!\(\*SubscriptBox[\(T\), \(1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]T\), \(s\)]\)}&,C[\[Lambda],0..\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\)]}.";
+SeriesSolutionData::usage="SeriesSolutionData[M,{x,x0}] constructs data for generalized power series solution of the system \[PartialD]U=M\[InvisibleComma]U.\nGeneralized form: SeriesSolutionData[M,{x,y(x),n}].\n    \[FilledSmallCircle] M should be rational.\n    \[FilledSmallCircle] M should be Fuchsian at x=x0.\n    \[FilledSmallCircle] Residue A at x=x0 should be free of resonances.\n    \[FilledSmallCircle] SeriesSolutionData returns data U with the asymptotics (x-x0)^A.\nReturned data has the form of a list with each element having the form {\[Lambda],\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\),s,{\!\(\*SubscriptBox[\(T\), \(1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]T\), \(s\)]\)}&,C[\[Lambda],0..\!\(\*SubscriptBox[\(K\), \(\[Lambda]\)]\)]}.\n\
+NB: Option UseFermat can be either True, False or three-digit binary number \"\!\(\*
+StyleBox[\"abc\",\nFontSlant->\"Italic\"]\)\", with \!\(\*
+StyleBox[\"a\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"=\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"1\",\nFontSlant->\"Italic\"]\), \!\(\*
+StyleBox[\"b\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"=\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"1\",\nFontSlant->\"Italic\"]\), \!\(\*
+StyleBox[\"c\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"=\",\nFontSlant->\"Italic\"]\)\!\(\*
+StyleBox[\"1\",\nFontSlant->\"Italic\"]\) corresponding to using Fermat at the calculation of resolvent (with OInverse), in OInverse and ODot, respectively.";
 SeriesSolutionData::notrat="Matrix received is not rational in `1`.";
 SeriesSolutionData::ppr="Positive Poincare rank at `1`=`2`.";
 SeriesSolutionData::res="Resonant eigenvalues at `1`=`2`.";
 
 
-ssd[M_?SquareMatrixQ,y_,yv_]:=Module[
+(*fermat --- binary number for using Fermat in several instances.*)
+ssd[M_?SquareMatrixQ,y_,yv_,fermat:(_String|_Integer|False|None|True|All)]:=Module[
 {pr,A,res,T,JF,y2A,p,evs,fp,Q,poles,dens,qs,Bs,\[Lambda],tmp,
 Rcoefs,rcoefs,n,Rdata,ly,
-statusline=""},
+statusline="",fflags=Replace[IntegerDigits[Replace[fermat,{False|None->0,True|All->7,f_String:>FromDigits[f,2]}],2,3],{1->True,0->False},{1}]},
 FCMonitor[
 CWrite["\n"];CWrite[statusline="Finding matrix residue..."];
 If[!RatFuncQ[M,y],Message[SeriesSolutionData::notrat,yv];Return[$Failed]];
 If[(pr=PoincareRank[M,{y,0}])>0,Message[SeriesSolutionData::ppr,yv,0];Return[$Failed]];
 A=SeriesCoefficient[M,{y,0,-1}];
-res=OInverse[\[Lambda]*IdentityMatrix[Length@A]-A];(*resolvent*)
+res=OInverse[\[Lambda]*IdentityMatrix[Length@A]-A,Fermatica`UseFermat->fflags[[1]]];(*resolvent*)
 CWrite["\n"];CWrite[statusline="Finding leading expansion terms..."];
 evs=DeleteDuplicates@EValues[A];
 If[MemberQ[Factor[Subtract@@@Subsets[evs,{2}]],_Integer],Message[SeriesSolutionData::res,yv,0];Return[$Failed]];
@@ -2103,38 +2312,42 @@ Rcoefs=Function[{\[Alpha],k},Evaluate@MapThread[bjf[#1,#2*IdentityMatrix[Length@
 Rdata=Function[{\[Alpha],k},
 CWrite["\n"];CWrite[statusline="Evaluating recurrence coefficients for power "<>ToString[\[Alpha]]<>"..."];
 rcoefs=Rcoefs[\[Alpha],k](*[n]*);
-tmp=OInverse[-rcoefs[[1]]];(*may be improved by dedicated calculation of inverse of bjf with 
+tmp=OInverse[-rcoefs[[1]],Fermatica`UseFermat->fflags[[2]]];(*may be improved by dedicated calculation of inverse of bjf with 
 off-diagonal terms calculated by iterative multiplication by -A^(-1)B*)
-{\[Alpha],k,Length@rcoefs-1(*=s from the paper*),Function@@({ODot[tmp,#]&/@Rest[rcoefs]/.n:>Slot[1]}),Flatten[#!*Coefficient[y2A,p[\[Alpha],#]]&/@Range[0,k],1]}
+{\[Alpha],k,Length@rcoefs-1(*=s from the paper*),Function@@({ODot[tmp,#,Fermatica`UseFermat->fflags[[3]]]&/@Rest[rcoefs]/.n:>Slot[1]}),Flatten[#!*Coefficient[y2A,p[\[Alpha],#]]&/@Range[0,k],1]}
 ]@@@fp;
 Rdata
 ,statusline]]
 
 
+Options[SeriesSolutionData]={Fermatica`UseFermat->False}
+
+
 (*Shortcuts*)
-SeriesSolutionData[M_?SquareMatrixQ,{x_,\[Infinity]}]:=
-Module[{z},ssd[-x^2M/.{x->1/z},z,1/x]];
-SeriesSolutionData[M_?SquareMatrixQ,{x_,x0_}]/;FreeQ[x0,x]:=
-Module[{z},ssd[M/.{x->z+x0},z,x-x0]]; 
-SeriesSolutionData[M_?SquareMatrixQ,{x_,y_}]:=
-Module[{z,xvar},xvar=x/.First[Solve[z==y,x]];ssd[M D[xvar,z]/.{x->xvar},z,y]];
+SeriesSolutionData[M_?SquareMatrixQ,{x_,\[Infinity]},OptionsPattern[]]:=
+Module[{z},ssd[-x^2M/.{x->1/z},z,1/x,OptionValue[Fermatica`UseFermat]]];
+SeriesSolutionData[M_?SquareMatrixQ,{x_,x0_},OptionsPattern[]]/;FreeQ[x0,x]:=
+Module[{z(*,ssd=If[TrueQ[Global`debug],Print["Debugging..."];ssd1,Libra`Private`ssd]*)},ssd[M/.{x->z+x0},z,x-x0,OptionValue[Fermatica`UseFermat]]]; 
+SeriesSolutionData[M_?SquareMatrixQ,{x_,y_},OptionsPattern[]]:=
+Module[{z,xvar(*,ssd=If[TrueQ[Global`debug],Print["Debugging..."];ssd1,Libra`Private`ssd]*)},xvar=x/.First[Solve[z==y,x]];ssd[M D[xvar,z]/.{x->xvar},z,y,OptionValue[Fermatica`UseFermat]]];
 
 
-ConstructSeriesSolution::usage="ConstructSeriesSolution[rdata_,{x_,o_}] makes a series solution out of rdata (see ?SeriesSolutionData for how to get rdata).\n    o \[LongDash] order in x.\nIf f=ConstructSeriesSolution[SeriesSolutionData[M,{x,0}],{x,o}], then one may check the equation by Factor[D[y,x]-M.y].\nOptions:\n    O\[Rule]True|False:False \[LongDash] whether to add O[x]^o\n    Split\[Rule]True|False:False determines whether to split contribution of different fractional powers.\n    Hold->f|False:False -- whether to wrap the leading powers. If f\[NotEqual]False is given, f[lp] is used instead of \!\(\*SuperscriptBox[\(x\), \(lp\)]\).\nSince Mathematica treats generalized power series poorly, using options O\[Rule]True and Split\[Rule]False simultaneously is not recommended. If option Split\[Rule]True is used,  ConstructSeriesSolution returns the result as a rectangular matrix n\[Times](n*|S|), with each square n\[Times]n block corresponding to a specific fractional power.";
+ConstructSeriesSolution::usage="ConstructSeriesSolution[rdata_,{x_,o_}] makes a series solution out of rdata (see ?SeriesSolutionData for how to get rdata).\n    o \[LongDash] order in x.\nIf f=ConstructSeriesSolution[SeriesSolutionData[M,{x,0}],{x,o}], then one may check the equation by Factor[D[y,x]-M.y].\nOptions:\n    O\[Rule]y|True|False:False \[LongDash] whether to add O[x]^o\n    Split\[Rule]True|False:False determines whether to split contribution of different fractional powers. \n    Hold->f|False:False -- whether to wrap the leading powers. If f\[NotEqual]False is given, f[lp] is used instead of \!\(\*SuperscriptBox[\(x\), \(lp\)]\).\nSince Mathematica treats generalized power series poorly, using options O\[Rule]True and Split\[Rule]False simultaneously is not recommended. Instead, if Split\[Rule]False, use O\[Rule]y to replace fractional power of x with those of y. If option Split\[Rule]True is used,  ConstructSeriesSolution returns the result as a rectangular matrix n\[Times](n*|S|), with each square n\[Times]n block corresponding to a specific fractional power.";
 ConstructSeriesSolution::mixed="Since Mathematica treats generalized power series poorly, using options O\[Rule]True and Split\[Rule]False simultaneously is not recommended.";
 
 
 Options[ConstructSeriesSolution]={O->False,Split->False,Simplify->Factor};
 
 
-ConstructSeriesSolution[rdata_,{x_,o_}, OptionsPattern[]]:=Module[{c,n,sdata,sf=OptionValue[Simplify],Oo=TrueQ@OptionValue[O],So=TrueQ@OptionValue[Split](*,Ho=If[TrueQ@!OptionValue[Hold],x^#&,OptionValue[Hold]]*)},
-If[Oo&&!So,Message[ConstructSeriesSolution::mixed]];
-Oo=If[Oo,x^o O[x],0];
+ConstructSeriesSolution[rdata_,{x_,o_}, OptionsPattern[]]:=Module[{c,n,sdata,sf=OptionValue[Simplify],remainder,Oo=OptionValue[O],So=TrueQ@OptionValue[Split],z},
+If[TrueQ@Oo&&!So,Message[ConstructSeriesSolution::mixed]];
+Oo=Replace[Oo,{True->{z->x},y_:>{z->y}}];
+remainder=If[TrueQ@Not[Oo],0,x^o O[x]];
 sdata=(Function[{lp,llp,M,coefs,init},
 c[lp,0]=init;c[lp,n_Integer?Positive]:=(Quiet[Unset[c[n-M-1]]];(*clean up*)
 c[lp,n]=sf@Sum[Dot[coefs[n][[m]],c[lp,n-m]],{m,Min[M,n]}]);
-x^lp*(Dot[((Log[x]^#/#!)&/@Range[0,llp]),(Partition[#,Length@#/(llp+1)]&[Sum[c[lp,n]*x^n,{n,0,o}]])]+Oo)
-]@@@rdata);
+z^lp*(Dot[((Log[x]^#/#!)&/@Range[0,llp]),(Partition[#,Length@#/(llp+1)]&[Sum[c[lp,n]*x^n,{n,0,o}]])]+remainder)
+]@@@rdata)/.Oo;
 If[So,ArrayFlatten[{sdata}],Plus@@sdata]
 ]
 
@@ -2195,6 +2408,81 @@ IIs=DeleteDuplicates[Cases[ex,h[{___,Except[l],(l)..},x_],All]];
 IIrules=Thread[IIs->Replace[IIs,shuffleRule,{1}]];
 ex=ex/.Dispatch[IIrules]/.h[ls:{(l)..},x_]:>h[{l},x]^Length[ls]/Length[ls]!;
 Return[ex]
+]
+
+
+GetLcs::usage="GetLcs[Mf,T,{x,y(x)}] returns {L,cs} pair.";
+GetLcs::err="Matrix is not rational or not normalized Fuchsian at the expansion point.";
+
+
+Options[GetLcs]={Fermatica`UseFermat->False }; 
+
+
+GetLcs[ds_?DSystemQ,T_?SquareMatrixQ,{x_,at_,extra_Integer:0},target:("Lcs"|"cs"):"Lcs",opts:OptionsPattern[]]:=GetLcs[ds[x],T,{x,at,extra},target,opts]
+
+
+GetLcs[Mf_?SquareMatrixQ,T_?SquareMatrixQ,{x_,at_,extra_Integer:0},target:("Lcs"|"cs"):"Lcs",OptionsPattern[]]:=Module[{inds,offset=0,cs,fflags=Replace[IntegerDigits[Replace[OptionValue[Fermatica`UseFermat],{False|None->0,True|All->63,f_String:>FromDigits[f,2]}],2,6],{1->True,0->False},{1}]},
+Which[
+target==="Lcs",
+getlcs[Mf,T,{x,at,extra},fflags,True],
+
+target==="cs",
+Flatten[Function[ii,(cs=MapAt[ii[[#]]&,getlcs[Mf[[ii,ii]],T[[ii,ii]],{x,at,extra},fflags,False],{All,1}];cs)]/@EntangledBlocksIndices[TClosure[Mf]+TClosure[T]],1]
+]
+];
+
+
+getlcs[Mf_,T_,{x_,at_,extra_Integer},fflags_,Lf:(True|False)(*\[DoubleLongLeftArrow] whether to return L*)]:=Module[ 
+{n=Length@Mf,mf, 
+t,tlo,tcl,listdot,id,mcl,
+x2z,z2x,z,A,sdata,r(*multiplicity*),
+c,cl,cs={},Li={},
+t1,t2,t3,
+i,j,sort,status=""
+},
+If[FreeQ[at,x],x2z=x->at+z,{x2z}=First[Solve[at==z,x]]];
+{z2x}=First[Solve[Equal@@x2z,z]];
+t=T/.x2z;
+Check[sdata=SeriesSolutionData[Mf,{x,Last[z2x]},Fermatica`UseFermat->FromDigits[Boole[fflags[[;;3]]],2]],Message[GetLcs::err];Return[$Failed]];
+tlo=LeadingOrder[t,{z,0}];
+tcl[]={};tcl[n_]:=Module[{known=tcl[],l},
+l=Length[known];If[n>l,known=Join[known,SeriesCoefficient[t,{z,0,#}]&/@(Range[l,n-1]+tlo)];tcl[]=known];
+Take[known,n]
+];(* <-- tcl is a lazy infinite list of series coefficients, starting from the leading one*)
+listdot[list1_,list2_]:=Inner[ODot[First@#1,First@#2,Fermatica`UseFermat->fflags[[4]]]&,id/@list1,id/@Reverse[list2]];
+FCMonitor[
+Function[{lp,llp,M,coefs,init},
+(*multiplicity is the rank of init*)
+status="Working on fractionality "<>ToString[lp]<>"...";
+r=MatrixRank[init];
+(*cl --- list of expansion coefficients*)
+cl[]={init};
+cl[n_]:=Module[{known=cl[],l,k},
+l=Length[known];
+Do[known=Append[known,Together@Sum[ODot[coefs[k][[m]],known[[-m]],Fermatica`UseFermat->fflags[[5]]],{m,Min[Length[known],M]}]],{k,l,n-1}];
+cl[]=known;
+Take[known,n]
+];
+(*here we have to pick both suitable cs and the rows of L^(-1), and preferably do it in the most economic way*)
+i=0;
+mcl={};
+j=-1;
+While[j<extra,
+If[mcl=!={}&&MatrixRank[ArrayFlatten[List/@mcl]]>=r,j++];
+i++;
+mcl=Append[mcl,listdot[Libra`Private`bjf[#,0,llp+1]&/@tcl[i],cl[i]]];
+];
+(* we prepend each row with  logpower,index, power*)
+mcl=SortBy[Flatten[MapIndexed[Function[{row,i},{{QuotientRemainder[Last[i]-1,n],First@i-1+tlo},row}],mcl,{2}],1],First];
+t1=PickBasisIndices[Last/@mcl];
+cs=Join[cs,{#1[[2]]+1,#2+lp,#1[[1]]}&@@@mcl[[t1,1]]];
+Li=Join[Li,mcl[[t1,2]]];
+]@@@sdata,
+status];
+sort=Ordering[cs];
+If[Lf,
+{OInverse[Li[[sort]],Fermatica`UseFermat->fflags[[6]]],cs[[sort]]},
+cs[[sort]]]
 ]
 
 
@@ -2273,12 +2561,33 @@ Transform::notinv="The two matrices are not reciprocal to each other. Aborting..
 Transform::range="Something wrong with application range `1`. Aborting...";
 
 
-Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,opts:OptionsPattern[]]:=Module[{ti=OInverse[t,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]]},
-transform[m,t,ti,OptionValue[Fermatica`UseFermat]] 
+Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,opts:OptionsPattern[]]:=(*Modified 15.02.2020*)Module[{t1,ti1,i1,y},
+i1=RelevantIndices[t];
+Which[i1==={},m,
+Length@i1==Length@t,
+ti1=OInverse[t,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]];
+transform[m,t,ti1,OptionValue[Fermatica`UseFermat]] ,
+True,
+t1=t[[i1,i1]];
+ti1=OInverse[t1,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]];
+transformrange[m,t1,ti1,y,i1,OptionValue[Fermatica`UseFermat]]
+](*/Modified 15.02.2020*)
 ];
-Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False}]:=If[checked||Factor[ti.t]===IdentityMatrix[Length@t],
-transform[m,t,ti,OptionValue[Fermatica`UseFermat]],
-Message[Transform::notinv];Abort[]]; 
+
+
+Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False}]:=
+(*Modified 15.02.2020*)Module[{t1,ti1,i1,y},
+If[checked||Factor[ti.t]===IdentityMatrix[Length@t],
+i1=RelevantIndices[t];
+Which[i1==={},m,
+Length@i1==Length@t,
+transform[m,t,ti,OptionValue[Fermatica`UseFermat]] ,
+True,
+t1=t[[i1,i1]];ti1=ti[[i1,i1]];
+transformrange[m,t1,ti1,y,i1,OptionValue[Fermatica`UseFermat]]
+],(*/Modified 15.02.2020*)
+Message[Transform::notinv];Abort[]]
+]; 
 
 
 
@@ -2287,33 +2596,55 @@ transform[m_,t_,ti_,x_,fermat:True|False]:=ODot[ti,ODot[m,t,Fermatica`UseFermat-
 transform[m_,t_,ti_,x_,{},fermat:True|False]:=ODot[ti,ODot[m,t,Fermatica`UseFermat->fermat]-D[t,x],Fermatica`UseFermat->fermat];
 
 
-transform[m_,t_,ti_,x_,notas:{__Rule},fermat:True|False]:=Internal`InheritedBlock[{D},
-SetOptions[D,NonConstants->First/@notas];
-(*Modified 18.05.2019*)Fold[OQuolyMod[#1,#2,Fermatica`UseFermat->fermat]&,ODot[ti,ODot[m,t,Fermatica`UseFermat->fermat]-(D[t,x]/.First[Solve[0==D[Last/@notas,x],D[First/@notas,x]]]),Fermatica`UseFermat->fermat],notas](*/Modified 18.05.2019*)
-]
+transform[m_,t_,ti_,x_,notas:{__Rule},fermat:True|False]:=(*Module[{tmp1,tmp2},*)Internal`InheritedBlock[{D},
+SetOptions[D,NonConstants->First/@notas];OQuolyMod[ODot[ti,ODot[m,t,Fermatica`UseFermat->fermat]-(D[t,x]/.First[Solve[0==D[Last/@notas,x],D[First/@notas,x]]]),Fermatica`UseFermat->fermat],notas,Fermatica`UseFermat->fermat]
+](*]*)
 
 
-Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],opts:OptionsPattern[]]:=Transform[m,{t,OInverse[t,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]],True},{x,notas},i,opts];
-Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False},{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],OptionsPattern[]]:=Module[{mt},If[checked||ODot[ti,t]===IdentityMatrix[Length@t],
-mt=transformrange[m,t,ti,x,i,notas/.Association->List,OptionValue[Fermatica`UseFermat]];
-mt,
+Transform[m_?SquareMatrixQ,t_?SquareMatrixQ,{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],opts:OptionsPattern[]]:=
+(*Modified 15.02.2020*)
+Module[{t1,i1,pt},
+(*The idea is that RelevantIndices is cheap, but it often happens that the transformation matrix is nontrivial only in small block*)
+i1=RelevantIndices[t];
+If[0<Length@i1<Length[t],pt=PrintTemporary[Style["Transforming reduced size: "<>ToString[Length@i1]<>"/"<>ToString[Length[t]]<>".",Tiny]]];
+If[i1==={},Return[m]];
+t1=t[[i1,i1]];
+i1=spantolist[i,Length@m][[i1]];(Quiet[NotebookDelete[pt]];#)&@Transform[m,{t1,OInverse[t1,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]],True},{x,notas},i1,opts]
+(*/Modified 15.02.2020*)
+];
+
+
+Transform[m_?SquareMatrixQ,{t_?SquareMatrixQ,ti_?SquareMatrixQ,checked:True|False:False},{x_Symbol,notations:_Association|{___Rule}:{}}|x_Symbol,i:{__Integer}|Span[_,_]:Span[1,All],OptionsPattern[]]:=Module[{mt,t1,ti1,i1,pt,notas},
+If[{notations}==={},notas={},notas=notations];
+If[checked||OQuolyMod[ODot[ti,t,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]],notas,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]]===IdentityMatrix[Length@t],
+(*Modified 15.02.2020*)
+(*The idea is that RelevantIndices is cheap, but it often happens that the transformation matrix is nontrivial only in small block*)
+i1=RelevantIndices[t];
+If[i1==={},Return[m]];
+If[Length@i1<Length[t],pt=PrintTemporary[Style["Transforming reduced size: "<>ToString[Length@i1]<>"/"<>ToString[Length[t]]<>".",Tiny]]];
+t1=t[[i1,i1]];ti1=ti[[i1,i1]];
+i1=spantolist[i,Length@m][[i1]];
+(Quiet[NotebookDelete[pt]];#)&@transformrange[m,t1,ti1,x,i1,notas/.Association->List,OptionValue[Fermatica`UseFermat]]
+(*/Modified 15.02.2020*),
 Message[Transform::notinv];Abort[]]
 ];
 
 
-todo["HistoryChop\[Rule]True option in Undo"]
+done["HistoryChop\[Rule]True option in Undo"]
 
 
 transformrange[m_,t_,ti_,x_,Span[1,All],notas:{___Rule}:{},fermat:True|False]:=transform[m,t,ti,x,notas,fermat];
 transformrange[m_,t_,ti_,x_,i_,notas:{___Rule}:{},fermat:True|False]:=Module[{mt=m,jj,ii,l=Length@m},
-ii=Replace[i,{Span[a_Integer,b_Integer]:>Range[Mod[a+l+1,l+1],Mod[b+l+1,l+1]],Span[a_Integer,All]:>Range[Mod[a+l+1,l+1],Length@m]}];
+(*Modified 15.02.2020*)
+ii=spantolist[i,l];
+(*/Modified 15.02.2020*)
 If[Not[MatchQ[ii,{(_Integer?(1<=#<= l&))..}]],Message[Transform::range,i];Abort[]];
 If[DeleteDuplicates[ii]=!=ii,Message[Transform::range,i];Abort[]];
 mt[[ii,ii]]=transform[m[[ii,ii]],t,ti,x,notas,fermat];
 jj=Complement[DependentColumnIndices[m,ii],ii];
-If[jj=!={},mt[[jj,ii]]=(*Modified 18.05.2019*)Fold[OQuolyMod[#,#2,Fermatica`UseFermat->fermat]&,ODot[mt[[jj,ii]],t,Fermatica`UseFermat->fermat],notas/.Association->List](*/Modified 18.05.2019*)];
+If[jj=!={},mt[[jj,ii]]=OQuolyMod[ODot[mt[[jj,ii]],t,Fermatica`UseFermat->fermat],notas,Fermatica`UseFermat->fermat]];
 jj=Complement[DependentRowIndices[m,ii],ii];
-If[jj=!={},mt[[ii,jj]]=(*Modified 18.05.2019*)Fold[OQuolyMod[#,#2,Fermatica`UseFermat->fermat]&,ODot[ti,mt[[ii,jj]],Fermatica`UseFermat->fermat],notas/.Association->List](*/Modified 18.05.2019*)];
+If[jj=!={},mt[[ii,jj]]=OQuolyMod[ODot[ti,mt[[ii,jj]],Fermatica`UseFermat->fermat],notas,Fermatica`UseFermat->fermat]];
 mt
 ];
 
@@ -2325,7 +2656,7 @@ m
 ]
 
 
-todo["Transform[ds,{T,Ti}]: add QuolyMod the the check that T.Ti=IdentityMatrix"];
+done["Transform[ds,{T,Ti}]: add QuolyMod the the check that T.Ti=IdentityMatrix"];
 
 
 ChangeVar::usage="ChangeVar[ds,{rules},{vars}] changes variable in the matrix.";
@@ -2334,7 +2665,7 @@ ChangeVar::usage="ChangeVar[ds,{rules},{vars}] changes variable in the matrix.";
 ChangeVar[m_?SquareMatrixQ,x_->xviay_,y_Symbol]:=Factor[m D[xviay,y]/.x->xviay]
 
 
-Options[ChangeVar]={Print->False}
+Options[ChangeVar]={Print->True}
 
 
 ChangeVar[ds_?DSystemQ,rs1:_Rule|{__Rule},ys1:_Symbol|_List,OptionsPattern[]]:=Module[{keys=Keys[ds[[]]],M,rs=Flatten[{rs1}],ys=Flatten[{ys1}],nkeys=First/@(Notations[ds]/.Association->List)},
@@ -2827,9 +3158,9 @@ guided={}\[LongLeftRightArrow]{}
 ];
 (*forming polesData and indices*)
 polesData=DeleteCases[{#,PoincareRank[m,{x,#}]}&/@polespos,{_,_?Negative}];
-Libra`Private`FCStaticMonitor[
+Monitor[
 polesData=
-(Monitor[{#1,#2,Monitor[JDData@Monitor[If[#1=!=\[Infinity],(*SeriesCoefficientMod[m,{x->x-#1,-1-#2}]*)SeriesCoefficient[m,{x,#1,-1-#2}],-SeriesCoefficient[m,{x,#1,1-#2}]],"\t\tSC",1],"\tJDD"],Monitor[If[#2>0,Prepend[#,"Fuchsify"]&/@(TransposePadRight[{Union@A0A1ToSubspaces[Monitor[Factor[LeadingSeriesCoefficients[m,{x,#1,1}]],"\t\tLSC"],Left],Union@A0A1ToSubspaces[Monitor[Factor[LeadingSeriesCoefficients[m,{x,#1,1}]],"\t\tLSC"],Right]},{}]),{}],"\tA0A1"]},ToString[#1]<>": "]&@@@polesData);
+({#1,#2,JDData@(If[#1=!=\[Infinity],(*SeriesCoefficientMod[m,{x->x-#1,-1-#2}]*)SeriesCoefficient[m,{x,#1,-1-#2}],-SeriesCoefficient[m,{x,#1,1-#2}]]),If[#2>0,Prepend[#,"Fuchsify"]&/@(TransposePadRight[{Union@A0A1ToSubspaces[Monitor[Factor[LeadingSeriesCoefficients[m,{x,#1,1}]],"\t\tLSC"],Left],Union@A0A1ToSubspaces[Monitor[Factor[LeadingSeriesCoefficients[m,{x,#1,1}]],"\t\tLSC"],Right]},{}]),{}]}&@@@polesData);
 ,"Calculating Jordan decomposition data..."];
 indices={};
 Do[
@@ -2993,6 +3324,22 @@ transformation
 NotebookSave[]
 
 
+ReduceFactors[m_?SquareMatrixQ,pat_]:=Module[{inds=EntangledBlocksIndices[m],odbi=OffDiagonalBlocksIndices[m,Flatten->True,Sort->Row],mt,n=Length@m,mysolve,Cs,c,eqs,sol={},i,imax,pt},
+mysolve[eq_]:=If[Length[Cs=Union[Cases[Collect[eq,_c],_c,All]]]>1,sol=Join[sol,Quiet[Flatten[Solve[Collect[eq,_c]==0,Cs]]]]];
+pt=PrintTemporary["Constructing equations..."];i=0;imax=Length[odbi];
+Monitor[
+eqs=Flatten[Function[ij,i++;c[First@First[ij]]-c[First@Last[ij]]*#&/@GetFactor[Flatten[m[[##]]&@@ij],_?NumericQ]]/@odbi],
+ProgressIndicator[i,{0,imax}]];
+Quiet[NotebookDelete[pt]];
+pt=PrintTemporary["Solving equations..."];i=0;imax=Length[eqs];
+Monitor[Scan[mysolve[#1//.sol]&,eqs],
+ProgressIndicator[i,{0,imax}]
+];
+Quiet[NotebookDelete[pt]];
+DiagonalMatrix[Flatten[ConstantArray[c[First@#],Length[#]]&/@inds]]//.sol/.c->C
+]
+
+
 todo["FactorOut: make clever sorting of the equations"];
 
 
@@ -3025,14 +3372,17 @@ FactorDependence::usage="FactorDependence[{m1,m2,\[Ellipsis]},\[Epsilon],\[Mu]] 
 Options[FactorDependence]={DependentRowIndices->Automatic,Solve->True,Fermatica`UseFermat->False};
 FactorDependence[m:{__?SquareMatrixQ},\[Epsilon]_,\[Mu]_,OptionsPattern[]]:=Module[
 {n=Length[First@m],t,vars,eqs,sol,ms},
-ms=Replace[OptionValue[DependentRowIndices],Automatic->tclosure[Transpose[m,{3,1,2}],1,Except[{0..}]]];
+ms=Replace[OptionValue[DependentRowIndices],{Automatic->tclosure[Transpose[m,{3,1,2}],1,Except[{0..}]],All->ConstantArray[1,{n,n}]}];
 (*insert here check for normalization*)
 t=ConstantArray[0,{n,n}];
 vars=(t[[##]]=Unique["t"])&@@@Flatten[Outer[List,{#},DependentRowIndices[ms,{#}]]&/@Range[n],2];
 (*eqs=SortBy[Flatten[(ODot[#,t]-ODot[t,#/.\[Epsilon]\[Rule]\[Mu]])&/@m],ByteCount];*)
 eqs=DeleteCases[Flatten[Transpose[(ODot[#,t,Together->False]-ODot[t,#/.\[Epsilon]->\[Mu],Together->False])&/@m,{3,1,2}]],0];If[!OptionValue[Solve],Print["Returning a pair {eqs,t}. To find the transformation one should solve eqs\[Equal]0 with respect to Variables[t] and substitute the solution to t."];Return[{eqs,t}]];
-Quiet[sol=GaussSolve[eqs,vars]];
-t/.sol/.MapIndexed[#->C@@#2&,Complement[vars,First/@sol]]
+If[OptionValue[Fermatica`UseFermat],
+Quiet[sol=Fermatica`FGaussSolve[eqs,vars,Reduce->True]],
+Quiet[sol=GaussSolve[eqs,vars]]
+];
+t//.Dispatch[sol]/.MapIndexed[#->C@@#2&,Complement[vars,First/@sol]]
 ]
 
 
@@ -3113,7 +3463,7 @@ If[x0=!=\[Infinity],
 t=IdentityMatrix[n]+c/(x-x0)^i2;o=-1,
 t=IdentityMatrix[n]+c*(x)^i2;o=1];
 mt=Transform[m,t,x];(*TODO: here Fermat should not be used*)
-Quiet[Check[sol=GaussSolve[If[i2>0,SortBy,#1&][Flatten[SeriesCoefficient[mt[[ind1,ind2]],{x,x0,o-i2}]],ByteCount],vars],If[i2>0,Print["Problem"]];Continue[],{GaussSolve::inconsistent}],{GaussSolve::inconsistent}];
+Quiet[Check[sol=GaussSolve[If[i2>0,SortBy,#1&,Continue->True][Flatten[SeriesCoefficient[mt[[ind1,ind2]],{x,x0,o-i2}]],ByteCount],vars],If[i2>0,Print["Can not fuchsify."]];Continue[],{GaussSolve::inconsistent}],{GaussSolve::inconsistent}];
 m=Factor[mt/.sol/.Thread[Flatten@c->0]];
 transform=ODot[transform,(t/.sol/.Thread[Flatten@c->0])];
 ,{i2,order,oc,-1}]
@@ -3136,7 +3486,7 @@ StyleBox[\"x\", \"TI\"]\),{{\!\(\*SubscriptBox[
 StyleBox[\"i\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
 StyleBox[\"i\", \"TI\"], \(2\)]\),\[Ellipsis]},{\!\(\*SubscriptBox[
 StyleBox[\"j\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
-StyleBox[\"j\", \"TI\"], \(2\)]\),\[Ellipsis]}}] is supposed to Fuchsify block \!\(\*
+StyleBox[\"j\", \"TI\"], \(2\)]\),\[Ellipsis]}}] is supposed to fuchsify block \!\(\*
 StyleBox[\"m\", \"TI\"]\)\!\(\*
 StyleBox[\"[\", \"TI\"]\)\!\(\*
 StyleBox[\"[\", \"TI\"]\){\!\(\*SubscriptBox[
@@ -3149,25 +3499,22 @@ StyleBox[\"j\", \"TI\"], \(2\)]\),\[Ellipsis]}]].";
 done["FuchsifyBlock works now without applying  transformation beforehand."];
 
 
-FuchsifyBlock[ds_?DSystemQ,x_Symbol,{high_List,low_List}]:=Module[{m,all=Join[high,low],ll=Length@low,lh=Length@high,y,x2y,t,notas=Notations[ds]/.Association->List},
+Options[FuchsifyBlock]={Simplify->False};
+
+
+FuchsifyBlock[ds_?DSystemQ,x_Symbol,{high_List,low_List},dens:_List|All:All,opts:OptionsPattern[]]:=Module[{m,all=Join[high,low],ll=Length@low,lh=Length@high,y,x2y,t,notas=Notations[ds]/.Association->List},
 m=ds[x][[all,all]];
 notas=Select[notas,Not[FreeQ[m,First[#]]]&];
-FuchsifyBlock[m,{x,notas},{Range[lh],Range[lh+1,lh+ll]}]
-(*If[Length@notas>1,Message[FuchsifyBlock::notas];Abort[]];
-If[Length@notas\[Equal]0,
-FuchsifyBlock[m,x,{Range[lh],Range[lh+1,lh+ll]}],
-PrintTemporary["Found one notation. Changing variable..."];
-{y,x2y}={#,NotationToRule[#1\[Rule]#2,x]}&@@(notas=First[notas]);
-ModNotation[FuchsifyBlock[(m/.x2y)*D[x2y[[2]],y],y,{Range[lh],Range[lh+1,lh+ll]}],notas]
-]*)
+FuchsifyBlock[m,{x,notas},{Range[lh],Range[lh+1,lh+ll]},dens,opts]
 ]
 
 
 FuchsifyBlock::pr="Diagonal block `1` is not Fuchsian. Aborting...";
+FuchsifyBlock::err="Can not fuchsify";
 FuchsifyBlock::notas="More that one notation involved. Not implemented yet. Aborting...";
-FuchsifyBlock[m_?MatrixQ,{x_Symbol,notations:_Association|{___Rule}:{}}|x_Symbol,{high_List,low_List},dens:_List|All:All]:=
+FuchsifyBlock[m_?MatrixQ,{x_Symbol,notations:_Association|{___Rule}:{}}|x_Symbol,{high_List,low_List},dens:_List|All:All,OptionsPattern[]]:=
 Module[
-{all=Join[high,low],lhigh=Length@high,llow=Length@low,densPR,infPR,deg,vars,c,cm,t,p,b,Ah,Al,Bhl,part1,part2,y,x2y,notas},
+{all=Join[high,low],lhigh=Length@high,llow=Length@low,densPR,infPR,deg,vars,c,cm,t,p,b,Ah,Al,Bhl,part1,part2,y,x2y,notas,pt,sp=Boole@Not@TrueQ[OptionValue[Simplify]]},
 If[{notations}==={},
 notas={},
 notas=notations/.Association->List
@@ -3177,7 +3524,7 @@ NewDSystem[b,x->Factor[m[[all,all]]],Print->False];
 notas=Select[notas,Not[FreeQ[b[x],First[#]]]&];
 If[Length@notas>1,Message[FuchsifyBlock::notas];Abort[]];
 If[Length@notas==1,
-PrintTemporary["Found one notation. Changing variable..."];
+pt=PrintTemporary[Style["FichsifyBlock: Found one notation. Changing variable...",Tiny]];
 {y,x2y}={notas[[1,1]],NotationToRule[notas[[1]],x]};
 ChangeVar[b,x2y,y,Print->False],
 y=x
@@ -3208,10 +3555,10 @@ part1=QuolyMod[Ah.cm-cm.Al,y->den];
 part2=QuolyMod[cm*D[den,y],y->den];
 Do[
 Bhl=QuolyMod[Factor[b[y][[;;lhigh,(-llow);;]]den^(p+1)],y->den];
-t[[;;lhigh,(-llow);;]]=cm/den^p/.GaussSolve[Flatten[CoefficientList[Bhl+part1+p*part2,y]],Flatten[vars]]/.Thread[Flatten[vars]->0];
+Quiet[Check[t[[;;lhigh,(-llow);;]]=cm/den^p/.GaussSolve[Flatten[CoefficientList[Bhl+part1+p*part2,y]],Flatten[vars],Continue->True]/.Thread[Flatten[vars]->0],If[p>0,Message[FuchsifyBlock::err]],GaussSolve::inconsistent],GaussSolve::inconsistent];
 Transform[b,t,Print->False]
 ,
-{p,pr,1,-1}],
+{p,pr,sp,-1}],
 (*infinity*)
 vars=Array[c,{lhigh,llow},{1,1}];
 t=IdentityMatrix[lhigh+llow];
@@ -3219,20 +3566,69 @@ Ah=SeriesCoefficient[b[y][[;;lhigh,;;lhigh]],{y,\[Infinity],1}];
 Al=SeriesCoefficient[b[y][[(-llow);;,(-llow);;]],{y,\[Infinity],1}];
 Do[
 Bhl=SeriesCoefficient[b[y][[;;lhigh,(-llow);;]],{y,\[Infinity],1-p}];
-t[[;;lhigh,(-llow);;]]=vars*y^p/.GaussSolve[Bhl+Ah.vars-vars.Al-p*vars,Flatten[vars]]/.Thread[Flatten[vars]->0];
+(**)
+Quiet[Check[t[[;;lhigh,(-llow);;]]=vars*y^p/.GaussSolve[Bhl+Ah.vars-vars.Al-p*vars,Flatten[vars],Continue->True]/.Thread[Flatten[vars]->0],If[p>0,Message[FuchsifyBlock::err]],GaussSolve::inconsistent],GaussSolve::inconsistent];
 Transform[b,t,Print->False]
 ,
-{p,pr,1,-1}]
+{p,pr,sp,-1}]
 ],
 Row[{den,":",p}]
 ];
 CWrite["]"]
 ]@@@densPR;
-t=Fold[QuolyMod,HistoryConsolidate[b,Inverse->False],notas]
+(Quiet[NotebookDelete[pt]];#)&[t=Fold[QuolyMod,HistoryConsolidate[b,Inverse->False],notas]]
 ]
 
 
 todo["Check FuchsifyBlock with notations."];
+
+
+FuchsifyDependentBlocks::usage="FuchsifyDependentBlocks[\!\(\*
+StyleBox[\"m\", \"TI\"]\),\!\(\*
+StyleBox[\"x\", \"TI\"]\),{\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(2\)]\),\[Ellipsis]}] is supposed to fuchsify off-diagonal dependent blocks of \!\(\*
+StyleBox[\"m\", \"TI\"]\)\!\(\*
+StyleBox[\"[\", \"TI\"]\)\!\(\*
+StyleBox[\"[\", \"TI\"]\){\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
+StyleBox[\"i\", \"TI\"], \(2\)]\),\[Ellipsis]}]].";
+
+FuchsifyDependentBlocks::err="Given indices `1` do not correspond to the highest block(s). Either they define only a part of a block or correspond to several blocks, one being grandchild of another."
+
+
+Options[FuchsifyDependentBlocks]={Fermatica`UseFermat->False,Simplify->False,Depth->\[Infinity]};
+
+
+FuchsifyDependentBlocks[m_?MatrixQ,{x_Symbol,notations:{___Rule}:{}}|x_Symbol,high_List,dens:_List|All:All,opts:OptionsPattern[]]:=Module[{ii,ms,ms1,hie,lhie,notas,h,t,fb,T,mon="",mon1=0,d=0},
+If[{notations}==={},notas={},notas=notations];
+ii=DependentRowIndices[m,high];
+h=Flatten[Position[ii,Alternatives@@high,{1}]];(*position of highsector*)
+ms=m[[ii,ii]];(*Take submatrix*)
+notas=Select[notas,Not[FreeQ[ms,First[#]]]&];
+hie=SortBy[BlocksHierarchyIndices[ms,Complement[Range[Length@ii],h],DependentRowIndices->False],First];
+lhie=Length@hie;
+(*Print[hie];*)
+If[Intersection[h,Flatten@hie]=!={},Message[FuchsifyDependentBlocks::err,high];Return[$Failed]];
+T=IdentityMatrix[Length@ms];
+FCMonitor[
+Catch[Scan[Function[level,mon1=First[level]+1/2;t=IdentityMatrix[Length@ms];(mon="Fuchsifying "<>ToString[#];
+(*Global`fb=*)fb=FuchsifyBlock[ms,{x,notas},{h,#},dens,Simplify->OptionValue[Simplify]];
+t[[h,#]]=fb[[;;Length@h,-Length@#;;]];
+)&/@Last[level];
+(*Global`T=T;Global`t=t;*)
+If[t=!=IdentityMatrix[Length@ms],
+mon="Transforming ...";T=ODot[T,t,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]];
+If[++d>=OptionValue[Depth],Throw[Null]];
+(*Global`ms=*)ms=Transform[ms,t,{x,notas},Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]]
+]
+],hie]],
+Overlay[{ProgressIndicator[mon1,{0,lhie}],Style[mon,Tiny]},Alignment->Center],1];
+{T,ii}
+]
+
+
+FuchsifyDependentBlocks[ds_?DSystemQ,x_Symbol,high_List,opts:OptionsPattern[]]:=FuchsifyDependentBlocks[ds[x],{x,Notations[ds]},high,opts]
 
 
 Fuchsify::usage="Fuchsify[\!\(\*
@@ -3241,11 +3637,14 @@ StyleBox[\"x\", \"TI\"]\)] is supposed to Fuchsify \!\(\*
 StyleBox[\"m\", \"TI\"]\).";
 
 
-Fuchsify[m_?MatrixQ,{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,dens:_List|All:All]:=
+Options[Fuchsify]={Simplify->False};
+
+
+Fuchsify[m_?MatrixQ,{x_Symbol,notas:_Association|{___Rule}:{}}|x_Symbol,dens:_List|All:All,OptionsPattern[]]:=
 Module[
 {odi=OffDiagonalBlocksIndices[m,Flatten->False,Sort->Diagonal],m1=m,t,t1},
 t=IdentityMatrix[Length@m];
-Function[{blocks},t1=IdentityMatrix[Length@m1];(t1[[Flatten@#,Flatten@#]]=FuchsifyBlock[m1,{x,notas},#,dens])&/@blocks;
+Function[{blocks},t1=IdentityMatrix[Length@m1];(t1[[Flatten@#,Flatten@#]]=FuchsifyBlock[m1,{x,notas},#,dens,Simplify->OptionValue[Simplify]])&/@blocks;
 m1=Transform[m1,t1,{x,notas}];
 t=ODot[t,t1];
 ]/@odi;
@@ -3323,12 +3722,15 @@ StyleBox[\"pat\", \"TI\"]\)] gives only denominators depending on \!\(\*
 StyleBox[\"pat\", \"TI\"]\).";
 
 
-Denominators[ds_?DSystemQ,pat_:_,excl_:_?NumericQ]:=Module[{dens},
+Options[Denominators]={Print->False};
+
+
+Denominators[ds_?DSystemQ,pat_:_,excl_:_?NumericQ,OptionsPattern[]]:=Module[{dens},
 dens=Denominators/.Drop[History[ds][[HistoryIndex[ds]]],2];
 If[dens===Denominators,
 dens=Denominators[Values[ds[]],Alternatives@@Variables[ds]];
-HistoryAddExtra[ds,Denominators->dens],
-Print[Style["Read Denominators from extras.",Small]]
+HistoryAddExtra[ds,{Denominators->dens},Print->OptionValue[Print]],
+If[OptionValue[Print],Print[Style["Read Denominators from extras.",Small]]]
 ];
 DeleteCases[dens,_?(FreeQ[#,pat]&)|excl]
 ]
@@ -3505,6 +3907,9 @@ obsolete[ex_,___]:=ex;
 
 
 patternQ[ex_]:=!FreeQ[ex,Pattern|Except|PatternTest|Blank|BlankSequence|BlankNullSequence|Alternatives];
+
+
+spantolist[span_,l_]:=Replace[span,{Span[a_Integer,b_Integer]:>Range[Mod[a+l+1,l+1],Mod[b+l+1,l+1]],Span[a_Integer,All]:>Range[Mod[a+l+1,l+1],l]}]
 
 
 End[];
