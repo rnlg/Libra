@@ -550,17 +550,12 @@ Replace[History[ds][[i,2]],{
 {i,start+1,end}],
 Overlay[{ProgressIndicator[i,{start,end}],ToString[i-start]<>"/"<>ToString[end-start]},Alignment->Center]];
 CWrite["]"];
-<<<<<<< HEAD
 i=1;end=Length@Notations[ds];If[inv,end=2*end];
 FCMonitor[
 T=Fold[OQuolyMod[i++;#,#2,Fermatica`UseFermat->fflags[[3]]]&,T,Notations[ds]];
 If[inv,Ti=Fold[OQuolyMod[i++;#,#2,Fermatica`UseFermat->fflags[[3]]]&,Ti,Notations[ds]]];,
 Overlay[{ProgressIndicator[i,{0,end}],Style["modding notations...",Tiny]},Alignment->Center]
 ];
-=======
-T=Fold[OQuolyMod[#,#2,Fermatica`UseFermat->fflags[[3]]]&,T,Notations[ds]];
-If[inv,Ti=Fold[OQuolyMod[#,#2,Fermatica`UseFermat->fflags[[3]]]&,Ti,Notations[ds]]];
->>>>>>> 3d1cae7380c34817bdf7a86475170fceccc69244
 <|Transform->If[inv,{T,Ti},T],ChangeVar->{Thread[old->subs],new},Notations->Notations[ds],In->val,Out->ds[]|>
 ]
 
