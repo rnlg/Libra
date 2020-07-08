@@ -1480,9 +1480,9 @@ StyleBox[\"\[Lambda]\", \"TI\"]\).";
 Options[JDTowers]={Fermatica`UseFermat->False};
 
 
-JDTowers[r_,opts:OptionsPattern[]]:=Flatten[JDTowers[r,#,opts]&/@DeleteDuplicates@EValues[r],1];
-JDTowers[r_,All,opts:OptionsPattern[]]:=Flatten[JDTowers[r,#,opts]&/@DeleteDuplicates@EValues[r],1];
-JDTowers[r_?SquareMatrixQ,evs_List,opts:OptionsPattern[]]:=Flatten[JDTowers[r,#,opts]&/@evs,1];
+JDTowers[r_,opts:OptionsPattern[]]/;Not[MatchQ[First[{opts,All}],_List]]:=Flatten[JDTowers[r,#,opts]&/@DeleteDuplicates@EValues[r,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]],1]; 
+JDTowers[r_,All,opts:OptionsPattern[]]:=Flatten[JDTowers[r,#,opts]&/@DeleteDuplicates@EValues[r,"Data/b"<>ToString[i]],1];
+JDTowers[r_?SquareMatrixQ,evs_List,opts:OptionsPattern[]]:=Flatten[JDTowers[r,#,opts]&/@evs,1]; 
 JDTowers[r_?SquareMatrixQ,ev:Except[_Rule],opts:OptionsPattern[]]:=Module[{vecs,vecs1,vecs2,l=Length[r],m,k=0,ns,plist={},rlist,evs},
 If[patternQ[ev],
 Return[JDTowers[r,Cases[DeleteDuplicates@EValues[r,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]],ev],opts]]
@@ -2381,7 +2381,7 @@ Module[{z,xvar},xvar=x/.First[Solve[z==y,x]];ssd[M D[xvar,z]/.{x->xvar},z,y,Opti
 ssd[M_?SquareMatrixQ,y_,yv_,fermat:(_String|_Integer|False|None|True|All):False,mon:(True|False):True]:=Module[
 {pr,A,res,T,JF,y2A,p,evs,fp,Q,poles,dens,qs,Bs,\[Lambda],tmp,
 Rcoefs,rcoefs,n,Rdata,ly,
-statusline="",secondline="",fflags=Replace[IntegerDigits[Replace[fermat,{False|None->0,True|All->7,f_String:>FromDigits[f,2]}],2,3],{1->True,0->False},{1}]},
+statusline="",secondline="",fflags=Replace[IntegerDigits[Replace[fermat,{False|None->0,True|All->15,f_String:>FromDigits[f,2]}],2,4],{1->True,0->False},{1}]},
 CMonitor[
 CWrite[statusline="Finding matrix residue..."];CWrite["\n"];
 If[!RatFuncQ[M,y],Message[SeriesSolutionData::notrat,yv];Return[$Failed]];
@@ -2389,7 +2389,7 @@ If[(pr=PoincareRank[M,{y,0}])>0,Message[SeriesSolutionData::ppr,yv,0];Return[$Fa
 A=SeriesCoefficient[M,{y,0,-1}];
 res=OInverse[\[Lambda]*IdentityMatrix[Length@A]-A,Fermatica`UseFermat->fflags[[1]]];(*resolvent*)
 CWrite[statusline="Finding leading expansion terms..."];CWrite["\n"];
-evs=DeleteDuplicates@EValues[A];
+evs=DeleteDuplicates@Expand@EValues[A,Fermatica`UseFermat->fflags[[2]]];
 If[MemberQ[Factor[Subtract@@@Subsets[evs,{2}]],_Integer],Message[SeriesSolutionData::res,yv,0];Return[$Failed]];
 fp={#1,-LeadingOrder[res,{\[Lambda],#}]-1}&/@evs;
 If[mon,secondline="\nLeading terms: "<>StringReplace[StringRiffle[ToString[yv^#1 Log[yv]^#2,InputForm]&@@@fp,","]," "->""]];
@@ -2410,9 +2410,9 @@ CWrite[statusline="Evaluating recurrence coefficients..."];CWrite["\n"];
 Rcoefs=Function[{\[Alpha],k},Evaluate@MapThread[bjf[#1,#2*IdentityMatrix[Length@M],k+1]&,{MapIndexed[(#/.{\[Lambda]->\[Alpha]+n-First[#2]+1})&,Bs],-qs},1](*Function[n,]*)];
 Rdata=Function[{\[Alpha],k},CWrite[statusline="Evaluating recurrence coefficients for power "<>ToString[\[Alpha]]<>"..."];CWrite["\n"];
 rcoefs=Rcoefs[\[Alpha],k](*[n]*);
-tmp=OInverse[-rcoefs[[1]],Fermatica`UseFermat->fflags[[2]]];(*may be improved by dedicated calculation of inverse of bjf with 
+tmp=OInverse[-rcoefs[[1]],Fermatica`UseFermat->fflags[[3]]];(*may be improved by dedicated calculation of inverse of bjf with 
 off-diagonal terms calculated by iterative multiplication by -A^(-1)B*)
-{\[Alpha],k,Length@rcoefs-1(*=s from the paper*),Function@@({ODot[tmp,#,Fermatica`UseFermat->fflags[[3]]]&/@Rest[rcoefs]/.n:>Slot[1]}),Flatten[#!*Coefficient[y2A,p[\[Alpha],#]]&/@Range[0,k],1]}
+{\[Alpha],k,Length@rcoefs-1(*=s from the paper*),Function@@({ODot[tmp,#,Fermatica`UseFermat->fflags[[4]]]&/@Rest[rcoefs]/.n:>Slot[1]}),Flatten[#!*Coefficient[y2A,p[\[Alpha],#]]&/@Range[0,k],1]}
 ]@@@fp
 ,statusline<>secondline,1];
 Rdata]
@@ -2450,7 +2450,7 @@ TraditionalForm]\) is arbitrary. The result is the list of successive terms."
 Options[PexpExpansion]={Split->True};
 
 
-PexpExpansion[{M_?MatrixQ,n_Integer},x_Symbol,OptionsPattern[]]:=Module[{p=PolesInfo[M,x],op,res,w,i=0,t},
+PexpExpansion[{M_?SquareMatrixQ,n_Integer},x_Symbol,OptionsPattern[]]:=Module[{p=PolesInfo[M,x],op,res,w,i=0,t},
 If[Not[MatchQ[p,{{_,0}...}]],Abort[]];
 p=DeleteCases[First/@p,\[Infinity]];
 op=Plus@@(SeriesCoefficient[M,{x,#,-1}]w[#]&/@p); (*operator*)
@@ -2462,7 +2462,7 @@ res
 ]
 
 
-PexpExpansion[{M_?MatrixQ,n_Integer},x_Symbol,x0:Except[_Rule],OptionsPattern[]]:=Module[{p=PolesInfo[M,x],op,res,w,i=0,t},
+PexpExpansion[{M_?SquareMatrixQ,n_Integer},x_Symbol,x0:Except[_Rule],OptionsPattern[]]:=Module[{p=PolesInfo[M,x],op,res,w,i=0,t},
 If[Not[MatchQ[p,{{_,0}...}]],Abort[]];
 p=DeleteCases[First/@p,\[Infinity]];
 op=Plus@@(SeriesCoefficient[M,{x,#,-1}]w[#]&/@p); (*operator*)
@@ -2470,6 +2470,17 @@ CMonitor[
 res=NestList[Function[pr,i++;
 CWrite["."];t=Expand[Dot[op,pr]];Plus@@((Coefficient[t,w[#]]/.{II[{a___},x,x0]:>II[{#,a},x,x0]})&/@p)],IdentityMatrix[Length@M]*II[{},x,x0],n],
 i,0,"Pexp"]
+]
+
+
+PexpExpansion[{M_?SquareMatrixQ,n_Integer},ws:{__Symbol},OptionsPattern[]]:=Module[{op,res,w,i=0,t},
+If[Not[{0}===Union@@(M/.Thread[ws->0])],Abort[]];
+op=M; (*operator*)
+CMonitor[
+res=NestList[Function[pr,i++;CWrite["."];t=Expand[Dot[op,pr]];Plus@@((Coefficient[t,#]/.{II[{a___}]:>II[{#,a}]})&/@ws)],IdentityMatrix[Length@M]*II[{}],n],
+i,0,"Pexp"];
+If[TrueQ[!OptionValue[Split]],res=Plus@@res];
+res
 ]
 
 
@@ -2509,12 +2520,15 @@ GetL::usage="GetL[M,T,{x,y(x)},cs] calculates the adapter for coefficients cs.";
 todo["GetL: make UseFermat optional, not obligatory."];
 
 
-GetL[M_?SquareMatrixQ,T_?SquareMatrixQ,{x_,y_},cs:{{_,_,0}..}]:=Module[
+Options[GetL]={Fermatica`UseFermat->False}
+
+
+GetL[M_?SquareMatrixQ,T_?SquareMatrixQ,{x_,y_},cs:{{_,_,0}..},OptionsPattern[]]:=Module[
 {sdata,lps,mp,Uscs,Tscs,Li,i=0,l},
 (*Assumption on input 
 1. each cs has zeroth third element (power of log)
 2. M has no *)
-sdata=SeriesSolutionData[M,{x,y}];lps=sdata[[All,1]];
+sdata=SeriesSolutionData[M,{x,y},Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]];lps=sdata[[All,1]];
 mp={#1,#2,LeadingOrderMod[T[[#1]],x->y]}&@@@cs;
 mp=First[Cases[Function[lp,{#1,lp,Expand[#2-lp],#3}]/@lps,{_,_,_Integer,_}]]&@@@mp;
 i=0;l=Length[sdata];
