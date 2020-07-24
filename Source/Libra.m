@@ -177,7 +177,7 @@ $LibraNotations;
 NotationsBlock;
 
 
-Rookie;
+Rookie;BirkhoffGrothendieck;
 
 
 Begin["`Private`"]
@@ -2408,7 +2408,7 @@ qs=CoefficientList[Q,y];
 Bs=Coefficient[Factor[Q(y M-\[Lambda] IdentityMatrix[Length@M])],y,#]&/@Range[0,Length[qs]-1];
 CWrite[statusline="Evaluating recurrence coefficients..."];CWrite["\n"];
 Rcoefs=Function[{\[Alpha],k},Evaluate@MapThread[bjf[#1,#2*IdentityMatrix[Length@M],k+1]&,{MapIndexed[(#/.{\[Lambda]->\[Alpha]+n-First[#2]+1})&,Bs],-qs},1](*Function[n,]*)];
-Rdata=Function[{\[Alpha],k},CWrite[statusline="Evaluating recurrence coefficients for power "<>ToString[\[Alpha]]<>"..."];CWrite["\n"];
+Rdata=Function[{\[Alpha],k},CWrite[statusline="Evaluating recurrence coefficients for power "<>ToString[\[Alpha],InputForm]<>"..."];CWrite["\n"];
 rcoefs=Rcoefs[\[Alpha],k](*[n]*);
 tmp=OInverse[-rcoefs[[1]],Fermatica`UseFermat->fflags[[3]]];(*may be improved by dedicated calculation of inverse of bjf with 
 off-diagonal terms calculated by iterative multiplication by -A^(-1)B*)
@@ -2524,11 +2524,12 @@ Options[GetL]={Fermatica`UseFermat->False}
 
 
 GetL[M_?SquareMatrixQ,T_?SquareMatrixQ,{x_,y_},cs:{{_,_,0}..},OptionsPattern[]]:=Module[
-{sdata,lps,mp,Uscs,Tscs,Li,i=0,l},
+{sdata,fermat,lps,mp,Uscs,Tscs,Li,i=0,l},
 (*Assumption on input 
 1. each cs has zeroth third element (power of log)
 2. M has no *)
-sdata=SeriesSolutionData[M,{x,y},Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]];lps=sdata[[All,1]];
+fermat=OptionValue[Fermatica`UseFermat];
+sdata=SeriesSolutionData[M,{x,y},Fermatica`UseFermat->fermat];lps=sdata[[All,1]];
 mp={#1,#2,LeadingOrderMod[T[[#1]],x->y]}&@@@cs;
 mp=First[Cases[Function[lp,{#1,lp,Expand[#2-lp],#3}]/@lps,{_,_,_Integer,_}]]&@@@mp;
 i=0;l=Length[sdata];
@@ -2536,7 +2537,7 @@ CMonitor[Uscs=Function[{lp,llp,Mm,coefs,init},
 Module[{c,o},
 o=Max[Cases[mp,{_,lp,lo_,lot_}:>lo-lot]];
 c[lp,0]=init;c[lp,n_Integer?Positive]:=(Quiet[Unset[c[n-Mm-1]]];(*clean up*)
-c[lp,n]=Together@Sum[Fermatica`FDotBig[coefs[n][[m]],c[lp,n-m]],{m,Min[Mm,n]}]);
+c[lp,n]=Together@Sum[ODot[coefs[n][[m]],c[lp,n-m],Fermatica`UseFermat->fermat],{m,Min[Mm,n]}]);
 Table[i+=1/(o+1);c[lp,n],{n,0,o}]
 ]]@@@sdata,
 Overlay[{ProgressIndicator[i,{0,l}],"U"},Alignment->Center]];
@@ -2547,7 +2548,7 @@ Overlay[{ProgressIndicator[i,{0,l}],"T"},Alignment->Center]];
 i=0;
 CMonitor[Li=Function[{fpindex,Trow},i++;
 Factor[Plus@@MapThread[Dot,{Trow,Reverse[Uscs[[fpindex]][[;;Length[Trow],;;l]]]}]]]@@@Tscs;,Overlay[{ProgressIndicator[i,{0,l}],"Li"},Alignment->Center]];
-Fermatica`FInverse[Li]
+OInverse[Li,Fermatica`UseFermat->fermat]
 ]
 
 
@@ -2558,24 +2559,24 @@ GetLcs::err="Matrix is not rational or not normalized Fuchsian at the expansion 
 Options[GetLcs]={Fermatica`UseFermat->False }; 
 
 
-GetLcs[ds_?DSystemQ,T_?SquareMatrixQ,{x_,at_,extra_Integer:0},target:("Lcs"|"cs"):"Lcs",opts:OptionsPattern[]]:=GetLcs[ds[x],T,{x,at,extra},target,opts]
+GetLcs[ds_?DSystemQ,T_?SquareMatrixQ,{x_,at_,extra_Integer:0},target:("Lcs"|"cs"):"Lcs",prefpat_:_,opts:OptionsPattern[]]:=GetLcs[ds[x],T,{x,at,extra},target,prefpat,opts]
 
 
-GetLcs[Mf_?SquareMatrixQ,T_?SquareMatrixQ,{x_,at_,extra_Integer:0},target:("Lcs"|"cs"):"Lcs",OptionsPattern[]]:=Module[{inds,offset=0,cs,len,
+GetLcs[Mf_?SquareMatrixQ,T_?SquareMatrixQ,{x_,at_,extra_Integer:0},target:("Lcs"|"cs"):"Lcs",prefpat_:_,OptionsPattern[]]:=Module[{inds,offset=0,cs,len,
 pb=0,fflags=Replace[IntegerDigits[Replace[OptionValue[Fermatica`UseFermat],{False|None->0,True|All->63,f_String:>FromDigits[f,2]}],2,6],{1->True,0->False},{1}]},
 Which[
 target==="Lcs",
-getlcs[Mf,T,{x,at,extra},fflags,True],
+getlcs[Mf,T,{x,at,extra},fflags,True,Cases[Range[Length@Mf],prefpat]],
 
 target==="cs",
 len=Length@Mf;
-CMonitor[Flatten[Function[ii,(cs=MapAt[ii[[#]]&,getlcs[Mf[[ii,ii]],T[[ii,ii]],{x,at,extra},fflags,False],{All,1}];pb+=Length@ii;cs)]/@EntangledBlocksIndices[TClosure[Mf]+TClosure[T]],1],
+CMonitor[Flatten[Function[ii,(cs=MapAt[ii[[#]]&,getlcs[Mf[[ii,ii]],T[[ii,ii]],{x,at,extra},fflags,False,Flatten@Position[ii,prefpat,{1},Heads->False]],{All,1}];pb+=Length@ii;cs)]/@EntangledBlocksIndices[TClosure[Mf]+TClosure[T]],1],
 Overlay[{ProgressIndicator[pb,{0,len}],"cs:"<>ToString[pb]<>"/"<>ToString[len]},Alignment->Center],1]
 ]
 ];
 
 
-getlcs[Mf_,T_,{x_,at_,extra_Integer},fflags_,Lf:(True|False)(*\[DoubleLongLeftArrow] whether to return L*)]:=Module[ 
+Libra`Private`getlcs[Mf_,T_,{x_,at_,extra_Integer},fflags_,Lf:(True|False)(*\[DoubleLongLeftArrow] whether to return L*),preflist_List:{}]:=Module[ 
 {n=Length@Mf,mf, 
 t,tlo,tcl,listdot,id,mcl,
 x2z,z2x,z,A,sdata,r(*multiplicity*),
@@ -2584,7 +2585,7 @@ t1,t2,t3,
 ebi,bi,k,l,
 i,j,sort,status=""
 },
-ebi=EntangledBlocksIndices[Mf];
+ebi=EntangledBlocksIndices[TClosure[Mf]+TClosure[T]];
 If[FreeQ[at,x],x2z=x->at+z,{x2z}=First[Solve[at==z,x]]];
 {z2x}=First[Solve[Equal@@x2z,z]];
 t=T/.x2z;
@@ -2595,7 +2596,7 @@ l=Length[known];If[n>l,known=Join[known,SeriesCoefficient[t,{z,0,#}]&/@(Range[l,
 Take[known,n]
 ];(* <-- tcl is a lazy infinite list of series coefficients, starting from the leading one*)
 listdot[list1_,list2_]:=Inner[ODot[First@#1,First@#2,Fermatica`UseFermat->fflags[[4]]]&,id/@list1,id/@Reverse[list2]];
-CMonitor[
+Libra`Private`CMonitor[
 Function[{lp,llp,M,coefs,init},
 (*multiplicity is the rank of init*)
 status="Working on fractionality "<>ToString[lp]<>"...";
@@ -2620,9 +2621,9 @@ mcl=Append[mcl,listdot[Libra`Private`bjf[#,0,llp+1]&/@tcl[i],cl[i]]];
 ];
 (* we prepend each row with  logpower,index, power*)
 mcl=SortBy[Flatten[MapIndexed[Function[{row,i},{k,l}=QuotientRemainder[Last[i]-1,n];
-{bi}=FirstPosition[ebi,_?(MemberQ[#,l+1]&),$Failed,{1}];{{bi,k,First@i-1+tlo,l},row}(*{Insert[QuotientRemainder[Last[i]-1,n],First@i-1+tlo,2],row}*)],mcl,{2}],1],First];
+{bi}=FirstPosition[ebi,_?(MemberQ[#,l+1]&),$Failed,{1}];{{bi,!MemberQ[preflist,l+1],k,First@i-1+tlo,l},row}(*{Insert[QuotientRemainder[Last[i]-1,n],First@i-1+tlo,2],row}*)],mcl,{2}],1],First];
 t1=PickBasisIndices[Last/@mcl];
-cs=Join[cs,{#4+1,#3+lp,#2}&@@@mcl[[t1,1]]];
+cs=Join[cs,{#5+1,#4+lp,#3}&@@@mcl[[t1,1]]];
 Li=Join[Li,mcl[[t1,2]]]
 (*cs=Join[cs,{#3+1,#2+lp,#1}&@@@mcl[[t1,1]]];
 Li=Join[Li,mcl[[t1,2]]];*)
@@ -2673,7 +2674,7 @@ PrintTemporary[Length@ders];
 Mk=Factor[D[Mk,x]+Mk.M];
 AppendTo[ders,Mk[[i]]];
 ];
-First[OKer[Transpose[ders]]]
+Factor[#/Last[#]&[First[OKer[Transpose[ders]]]]]
 ]
 
 
@@ -2846,7 +2847,7 @@ AddNotation[ds_?DSystemQ,rules:{__Rule},OptionsPattern[]]:=Module[{tmp,keys=Keys
 tmp=FreeQ[#2,#1]&@@@rules;
 If[Or@@tmp,Message[AddNotation::wrng,#1,#2]&@@@Pick[rules,tmp];Abort[]];
 tmp=MatchQ[#,Alternatives@@(First/@rules)->_]&/@nots;
-If[Or@@tmp,Message[AddNotation::exists,#1,#2]&@@@Pick[rules,tmp];Abort[]];
+If[Or@@tmp,Message[AddNotation::exists,#1,#2]&@@@Pick[nots,tmp];Abort[]];
 nots=Join[nots,rules];
 Protect/@First/@rules;
 unprotect[ds,Notations[ds]^=nots];
@@ -3352,7 +3353,7 @@ Background->If[MemberQ[guided[[2]],index],Yellow,Automatic]](*Item[(*,Sequence@@
 ],{0->""},{2}]
 }}],Spacings->0,ItemSize->All,Alignment->Center]
 },{
-Button[Dynamic["Apply balance transformation ("<>bytecount<>"b)"],If[OptionValue[Debug],WriteString["stdout","Pressed \"Apply balance transformation\" button.\n"]];continue=True;DialogReturn[],Enabled->Dynamic[applyEnabled],Background->Dynamic[colorMark]]
+Button[Dynamic["Apply balance transformation ("<>ToString[bytecount]<>"b)"],If[OptionValue[Debug],WriteString["stdout","Pressed \"Apply balance transformation\" button.\n"]];continue=True;DialogReturn[],Enabled->Dynamic[applyEnabled],Background->Dynamic[colorMark]]
 },
 {
 Button["Paste overall transformation",If[OptionValue[Debug],WriteString["stdout","Pressed \"Paste overall transformation\" button.\n"]];DialogReturn[],Background->Dynamic[colorMark]]
@@ -3947,6 +3948,35 @@ PrintTemporary["I have applied the balance found."]
 ];
 transformation=HistoryConsolidate[b,Inverse->False]
 ]
+
+
+FirstDependence::usage="FirstDependence[{\!\(\*SubscriptBox[\(v\), \(1\)]\),\!\(\*SubscriptBox[\(v\), \(2\)]\),\[Ellipsis],\!\(\*SubscriptBox[\(v\), \(n\)]\)}] returns a list {\!\(\*SubscriptBox[\(c\), \(1\)]\),\!\(\*SubscriptBox[\(c\), \(2\)]\),\[Ellipsis],\!\(\*SubscriptBox[\(c\), \(k - 1\)]\)}, such that \!\(\*SubscriptBox[\(v\), \(1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]v\), \(k - 1\)]\) are linearly independent and \!\(\*SubscriptBox[\(v\), \(k\)]\)=\!\(\*SubscriptBox[\(c\), \(1\)]\)\!\(\*SubscriptBox[\(v\), \(1\)]\)+\[Ellipsis]+\!\(\*SubscriptBox[\(c\), \(k - 1\)]\)\!\(\*SubscriptBox[\(v\), \(k - 1\)]\). If there are no linear dependence, it returns a zero list of length n.";
+FirstDependence[vs_?MatrixQ]:=Module[{n=Length@vs,k,vks,cs},
+cs=ConstantArray[0,{n}];
+Do[If[MatrixRank[vks=Take[vs,k]]<k,cs=Most[-#]/Last[#]&@@NullSpace[Transpose[vks]];Break[]],{k,n}];
+Return[cs]]
+
+
+BirkhoffGrothendieck::usage="BikhoffGrothendieck[T,z] performs Birkhoff-Grothendieck factorization, returning a list {L,D,R}, where L and R are polynomial in z and \!\(\*SuperscriptBox[\(z\), \(-1\)]\), respectively, together with their inverse, and D is a diagonal matrix with diagonal elements being the powers of z.";
+Clear[BirkhoffGrothendieck];
+BirkhoffGrothendieck[T_?SquareMatrixQ,z_]:=Module[{n=Length[T],f,Tp,L,dg,R,dg1,id,cs,k,Ui,P,V,o,lod},
+id=IdentityMatrix[n];
+f=z^LeadingOrder[T,{z,0}];
+Tp=Factor[T/f];
+L=Tp;dg=ConstantArray[0,{n}];R=id;
+lod=LeadingOrder[Fermatica`FDet[Tp],{z,0}];
+Do[
+cs=FirstDependence[Transpose[L/.z->0]];
+k=1+Length@cs;
+Ui=id;Ui[[;;k,k]]=Append[-cs,1]/z;
+V=id;V[[;;k,k]]=Append[cs*z^(dg[[k]]-dg[[;;k-1]]),1];
+dg1=dg;dg1[[k]]+=1;o=Ordering[-dg1];
+P=id[[o]];
+L=Fermatica`FDot[L,Ui,Transpose[P]];dg=dg1[[o]];R=Fermatica`FDot[P,V,R];
+WriteString["stdout","."];
+,{lod}];
+Return[{L,DiagonalMatrix[f*z^dg],R}]
+];
 
 
 SetAttributes[unprotect,{HoldRest}]
