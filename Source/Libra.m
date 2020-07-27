@@ -144,6 +144,9 @@ TraditionalForm]\), where \!\(\*FormBox[SubscriptBox[\(x\), \(0\)],
 TraditionalForm]\) is arbitrary (with convention II[{},x]=1). II[{\!\(\*SubscriptBox[\(a\), \(n\)]\),\!\(\*SubscriptBox[\(a\), \(n - 1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]a\), \(1\)]\)},x,\!\(\*SubscriptBox[\(x\), \(0\)]\)] specifies \!\(\*SubscriptBox[\(x\), \(0\)]\). By definition, II[{\!\(\*SubscriptBox[\(x\), \(0\)]\),\[Ellipsis],\!\(\*SubscriptBox[\(x\), \(0\)]\)},x,\!\(\*SubscriptBox[\(x\), \(0\)]\)]=Log[x-\!\(\*SubscriptBox[\(x\), \(0\)]\)\!\(\*SuperscriptBox[\(]\), \(n\)]\)/n!."
 
 
+ToAlphabet;
+
+
 SeriesSolutionData;ConstructSeriesSolution;
 
 
@@ -1688,8 +1691,9 @@ GaussSolve::inconsistent="Inconsistent equation encountered.";
 Options[GaussSolve]={Continue->True,Monitor->True};
 
 
-GaussSolve[eqs_,vs_,OptionsPattern[]]:=Module[{sol1,res,ip=-1,i=0,l=Length@eqs,sf,vars=vs,cnt=TrueQ[OptionValue[Continue]],
+GaussSolve[eqs_,vs_,OptionsPattern[]]:=Module[{sol1,res,ip=-1,i=0,l=Length@eqs,sf,x,vars,cnt=TrueQ[OptionValue[Continue]],
 monitor=OptionValue[Monitor]},
+vars=Append[vs,x];
 sf=Collect[#,vars,Together]&;
 If[monitor,CMonitor,#&][
 res=Catch[Fold[
@@ -2436,6 +2440,18 @@ c[lp,n]=sf@Sum[Dot[coefs[n][[m]],c[lp,n-m]],{m,Min[M,n]}]);
 z^lp*(Dot[((Log[x]^#/#!)&/@Range[0,llp]),(Partition[#,Length@#/(llp+1)]&[zero+Sum[c[lp,n]*x^n,{n,0,o}]])]+remainder)
 ]@@@rdata)/.Orule;
 If[So,ArrayFlatten[{sdata}],Plus@@sdata]
+]
+
+
+ToAlphabet::usage="ToAlphabet[M,{w1\[Rule]1/(x-1),\[Ellipsis]},{x}] tries to rewrite matrix in terms of the alphabet {w1\[Rule]1/(x-1),\[Ellipsis]}.";
+ToAlphabet::poor="Insufficient alphabet `1`.";
+ToAlphabet[f_,weights:{(_Symbol->_)...},x:Except[Automatic,_Symbol]]:=ToAlphabet[f,weights,{x}];
+ToAlphabet[M_List,weights:{(_Symbol->_)...},vars_List,pos_:{}]:=MapIndexed[ToAlphabet[#,weights,vars,Join[pos,#2]]&,M,{ArrayDepth[M]}];
+ToAlphabet[f:Except[_List],weights:{(_Symbol->_)...},vars_List,pos_:{}]:=Module[{as,a,arules},
+as=Array[a,Length[weights]];
+arules=GaussSolve[Last/@CoefficientRules[Numerator@Together[f-as.(Last/@weights)],vars],as,Continue->False];
+If[arules===$Failed,Message[ToAlphabet::poor,pos];Return[f]];
+Return[as.(First/@weights)/.arules]
 ]
 
 
@@ -3563,7 +3579,7 @@ StyleBox[\"j\", \"TI\"], \(2\)]\),\[Ellipsis]}]].";
 done["FuchsifyBlock works now without applying  transformation beforehand."];
 
 
-Options[FuchsifyBlock]={Simplify->False,Monitor->True,Fermatica`UseFermat->False,Inverse->True};
+Options[FuchsifyBlock]={Simplify->False,Monitor->True,Fermatica`UseFermat->False,Inverse->False};
 
 
 FuchsifyBlock[ds_?DSystemQ,x_Symbol,{high_List,low_List},dens:_List|All:All,opts:OptionsPattern[]]:=Module[{m,all=Join[high,low],ll=Length@low,lh=Length@high,y,x2y,t,notas},
@@ -3621,7 +3637,7 @@ part1=QuolyMod[Ah.cm-cm.Al,y->den];
 part2=QuolyMod[cm*D[den,y],y->den];
 Do[
 Bhl=QuolyMod[Factor[b[y][[;;lhigh,(-llow);;]]den^(p+1)],y->den];
-Quiet[Check[t[[;;lhigh,(-llow);;]]=cm/den^p/.GaussSolve[Flatten[CoefficientList[Bhl+part1+p*part2,y]],Flatten[vars],Continue->True,Monitor->monitor]/.Thread[Flatten[vars]->0],If[p>0,Message[FuchsifyBlock::err]],GaussSolve::inconsistent],GaussSolve::inconsistent];
+Quiet[Check[t[[;;lhigh,(-llow);;]]=cm/den^p/.GaussSolve[If[p==0,Join[Flatten[vars[[All,All,2;;]]],#],#]&@Flatten[CoefficientList[Bhl+part1+p*part2,y]],Flatten[vars],Continue->True,Monitor->monitor]/.Thread[Flatten[vars]->0],If[p>0,Message[FuchsifyBlock::err]],GaussSolve::inconsistent],GaussSolve::inconsistent];
 Transform[b,t,Print->False]
 ,
 {p,pr,sp,-1}],
