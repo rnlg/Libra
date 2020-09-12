@@ -110,7 +110,7 @@ VisTransformation;
 (*A0ToSubspaces;*)A0A1ToSubspaces;GetSubspaces;Projector;
 
 
-FactorOut;FactorDependence;
+FactorOut;FactorDependence;IntertwiningMatrix;
 
 
 ReduceFactors;
@@ -2429,25 +2429,44 @@ ConstructSeriesSolution::mixed="Since Mathematica treats generalized power serie
 Options[ConstructSeriesSolution]={O->False,Split->False,Simplify->Factor};
 
 
-ConstructSeriesSolution[rdata_,{x_,o_}, OptionsPattern[]]:=Module[{zero,c,n,sdata,sf=OptionValue[Simplify],remainder,Oo=OptionValue[O],Orule,So=TrueQ@OptionValue[Split],z},
+ConstructSeriesSolution[rdata_,{x_,o_}, OptionsPattern[]]:=Module[{zero,c,n,k,sdata,sd,sdcoefs,sf=OptionValue[Simplify],remainder,Oo=OptionValue[O],Orule,So=TrueQ@OptionValue[Split],z},
 If[TrueQ@Oo&&!So,Message[ConstructSeriesSolution::mixed]];
 Orule=Replace[Oo,{True|False->{z->x},y_:>{z->y}}];
 remainder=If[TrueQ@Not[Oo],0,x^o O[x]];
 sdata=(Function[{lp,llp,M,coefs,init},
-zero=0*init;(*\[DoubleLongLeftArrow] this is to avoid strange behaviour for empty series*)
-c[lp,0]=init;c[lp,n_Integer?Positive]:=(Quiet[Unset[c[n-M-1]]];(*clean up*)
-c[lp,n]=sf@Sum[Dot[coefs[n][[m]],c[lp,n-m]],{m,Min[M,n]}]);
-z^lp*(Dot[((Log[x]^#/#!)&/@Range[0,llp]),(Partition[#,Length@#/(llp+1)]&[zero+Sum[c[lp,n]*x^n,{n,0,o}]])]+remainder)
+n=Last@Dimensions[init];
+zero=ConstantArray[0,{n,n}];(*\[DoubleLongLeftArrow] this is to avoid strange behaviour for empty series*)
+c[lp,0]=init;c[lp,k_Integer?Positive]:=(Quiet[Unset[c[k-M-1]]];(*clean up*)
+c[lp,k]=sf@Sum[Dot[coefs[k][[m]],c[lp,k-m]],{m,Min[M,k]}]);
+sdcoefs=Dot[((Log[x]^#/#!)&/@Range[0,llp]),Partition[#,n]]&/@Table[c[lp,k],{k,0,o}];
+z^lp*If[TrueQ@Not[Oo],zero+Table[x^k,{k,0,o}].sdcoefs,MapThread[SeriesData[x,0,{##},0,o+1,1]&,Append[sdcoefs,zero],2]]
 ]@@@rdata)/.Orule;
-If[So,ArrayFlatten[{sdata}],Plus@@sdata]
+Clear[c];
+If[So,sdata,Plus@@sdata]
 ]
 
 
 ToAlphabet::usage="ToAlphabet[M,{w1\[Rule]1/(x-1),\[Ellipsis]},{x}] tries to rewrite matrix in terms of the alphabet {w1\[Rule]1/(x-1),\[Ellipsis]}.";
 ToAlphabet::poor="Insufficient alphabet `1`.";
-ToAlphabet[f_,weights:{(_Symbol->_)...},x:Except[Automatic,_Symbol]]:=ToAlphabet[f,weights,{x}];
-ToAlphabet[M_List,weights:{(_Symbol->_)...},vars_List,pos_:{}]:=MapIndexed[ToAlphabet[#,weights,vars,Join[pos,#2]]&,M,{ArrayDepth[M]}];
-ToAlphabet[f:Except[_List],weights:{(_Symbol->_)...},vars_List,pos_:{}]:=Module[{as,a,arules},
+
+
+Options[ToAlphabet]={Monitor->False,Position->{}};
+
+
+ToAlphabet[f_,weights:{___Rule},x:Except[Automatic,_Symbol]]:=ToAlphabet[f,weights,{x}];
+
+
+ToAlphabet[M_List,weights:{___Rule},vars_List,OptionsPattern[]]:=Module[
+{mon=TrueQ@OptionValue[Monitor],pos=OptionValue[Position], ind,dim=Dimensions[M]},
+If[mon,
+CMonitor[MapIndexed[ToAlphabet[#,weights,vars,Position->(ind=Join[pos,#2])]&,M,{ArrayDepth[M]}],
+ind->dim,1],
+MapIndexed[ToAlphabet[#,weights,vars,Position->Join[pos,#2]]&,M,{ArrayDepth[M]}]
+]
+];
+
+
+ToAlphabet[f:Except[_List],weights:{___Rule},vars_List,OptionsPattern[]]:=Module[{as,a,arules,pos=OptionValue[Position]},
 as=Array[a,Length[weights]];
 arules=GaussSolve[Last/@CoefficientRules[Numerator@Together[f-as.(Last/@weights)],vars],as,Continue->False];
 If[arules===$Failed,Message[ToAlphabet::poor,pos];Return[f]];
@@ -2513,19 +2532,19 @@ todo["InsertionPositions can probably be written in C"];
 
 
 FactorLeadingLetter[expr_,l_,h_:II]:=Module[{IIs,IIrules={},shuffleRule,ex=expr,k,il,i},
-shuffleRule=h[{ls:(l)..,b1:Except[l],bs___},x_]:>Plus@@MapIndexed[Function[{shs,il},i=First[il]-1;((-1)^i)*h[Drop[{ls},-i],x]*Plus@@(h[Prepend[#,b1],x]&/@shs)],ShuffleProductNestList[l,{bs},Length@{ls}]];
-IIs=DeleteDuplicates[Cases[ex,h[{(l)..,Except[l],___},x_],All]];
+shuffleRule=h[{ls:(l)..,b1:Except[l],bs___},x___]:>Plus@@MapIndexed[Function[{shs,il},i=First[il]-1;((-1)^i)*h[Drop[{ls},-i],x]*Plus@@(h[Prepend[#,b1],x]&/@shs)],ShuffleProductNestList[l,{bs},Length@{ls}]];
+IIs=DeleteDuplicates[Cases[ex,h[{(l)..,Except[l],___},x___],All]];
 IIrules=Thread[IIs->Replace[IIs,shuffleRule,{1}]];
-ex=ex/.Dispatch[IIrules]/.h[ls:{(l)..},x_]:>h[{l},x]^Length[ls]/Length[ls]!;
+ex=ex/.Dispatch[IIrules]/.h[ls:{(l)..},x___]:>h[{l},x]^Length[ls]/Length[ls]!;
 Return[ex]
 ]
 
 
 FactorTrailingLetter[expr_,l_,h_:II]:=Module[{IIs,IIrules={},shuffleRule,ex=expr,k,il,i},
-shuffleRule=h[{bs___,b1:Except[l],ls:(l)..},x_]:>Plus@@MapIndexed[Function[{shs,il},i=First[il]-1;((-1)^i)*h[Drop[{ls},-i],x]*Plus@@(h[Append[#,b1],x]&/@shs)],ShuffleProductNestList[l,{bs},Length@{ls}]];
-IIs=DeleteDuplicates[Cases[ex,h[{___,Except[l],(l)..},x_],All]];
+shuffleRule=h[{bs___,b1:Except[l],ls:(l)..},x___]:>Plus@@MapIndexed[Function[{shs,il},i=First[il]-1;((-1)^i)*h[Drop[{ls},-i],x]*Plus@@(h[Append[#,b1],x]&/@shs)],ShuffleProductNestList[l,{bs},Length@{ls}]];
+IIs=DeleteDuplicates[Cases[ex,h[{___,Except[l],(l)..},x___],All]];
 IIrules=Thread[IIs->Replace[IIs,shuffleRule,{1}]];
-ex=ex/.Dispatch[IIrules]/.h[ls:{(l)..},x_]:>h[{l},x]^Length[ls]/Length[ls]!;
+ex=ex/.Dispatch[IIrules]/.h[ls:{(l)..},x___]:>h[{l},x]^Length[ls]/Length[ls]!;
 Return[ex]
 ]
 
@@ -2722,7 +2741,7 @@ StyleBox[\"ds\", \"TI\"]\),\!\(\*
 StyleBox[\"t\", \"TI\",\nFontSize->12]\)] transforms the differential system.";
 
 
-Options[Transform]={Simplify->Factor,Print->True,Fermatica`UseFermat->False};
+Options[Transform]={Simplify->Factor,Inverse->False,Print->True,Fermatica`UseFermat->False};
 
 
 Transform::notinv="The two matrices are not reciprocal to each other. Aborting...";
@@ -2817,14 +2836,28 @@ mt
 ];
 
 
-Transform[ds_?DSystemQ,t_,i:{__Integer}|Span[_,_]:Span[1,All],opts:OptionsPattern[]]:=Module[{m=ds[[]]},
-(m[#]=Transform[m[#],t,{#,Notations[ds]},i,opts])&/@Keys[m];
-HistoryAppend[ds,{m,{Transform,ds,t,i}},Sequence@@FilterRules[{opts},Options[HistoryAppend]]];
+Transform[ds_?DSystemQ,t_,i:{__Integer}|Span[_,_]:Span[1,All],opts:OptionsPattern[]]:=Module[{m=ds[[]],tti},
+tti=Replace[t,
+{
+t1_?SquareMatrixQ:>{t1,OInverse[t1,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]],True},
+{t1_?SquareMatrixQ,ti1_?SquareMatrixQ,Optional[False]}:> (
+If[OQuolyMod[ODot[ti1,t1,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]],notas,Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]]===IdentityMatrix[Length@t],
+{t1,ti1,True},
+Message[Transform::notinv];Abort[]
+]
+)
+(*,tti1:{_?SquareMatrixQ,_?SquareMatrixQ,True}\[RuleDelayed]tti1(*not needed, just for readability*)*)
+}
+];
+(m[#]=Transform[m[#],tti,{#,Notations[ds]},i,opts])&/@Keys[m];
+If[TrueQ@OptionValue[Inverse],
+HistoryAppend[ds,{m,{Transform,ds,tti,i}},Sequence@@FilterRules[{opts},Options[HistoryAppend]]],
+HistoryAppend[ds,{m,{Transform,ds,t,i}},Sequence@@FilterRules[{opts},Options[HistoryAppend]]]];
 m
 ]
 
 
-done["Transform[ds,{T,Ti}]: add QuolyMod the the check that T.Ti=IdentityMatrix"];
+done["Transform[ds,{T,Ti}]: add QuolyMod in the check that T.Ti=IdentityMatrix"];
 
 
 ChangeVar::usage="ChangeVar[ds,{rules},{vars}] changes variable in the matrix.";
@@ -3056,7 +3089,7 @@ Return[A0A1ToSubspaces[{m0,m1}]]
 m0=-s*SeriesCoefficient[m,{x,x0,o}];
 status="Evaluating subspaces";
 CWrite["\n"<>status];
-Return[JDTowers[m0,If[TrueQ@OptionValue[All],All,_?(Negative[#+1/2/.\[Epsilon]->0]&)],Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]]]]
+Return[JDTowers[m0,If[TrueQ@OptionValue[All],All,_?(Negative[#+1/2/.First[Solve[\[Epsilon]==0]]]&)],Fermatica`UseFermat->OptionValue[Fermatica`UseFermat]]]]
 ,status,1
 ]
 ]
@@ -3269,19 +3302,19 @@ StyleBox[\"m\", \"TI\"]\),\!\(\*
 StyleBox[\"x\", \"TI\"]\)] is a visual tool for finding transformation. Soon to replace VisBalancing.";
 
 
-VisTransformation[ds_,{x_Symbol,poles_},\[Epsilon]_Symbol:Indeterminate,opts:OptionsPattern[]]:=VisTransformation[ds[x],x,\[Epsilon],poles,opts]
+VisTransformation[ds_,{x_Symbol,poles_},\[Epsilon]_:Indeterminate,opts:OptionsPattern[]]:=VisTransformation[ds[x],x,\[Epsilon],poles,opts]
 
 
-VisTransformation[ds_?DSystemQ,x_Symbol,\[Epsilon]_Symbol:Indeterminate,poles:All|{__}:All,opts:OptionsPattern[]]:=VisTransformation[ds[x],x,\[Epsilon],poles,opts];
+VisTransformation[ds_?DSystemQ,x_Symbol,\[Epsilon]_:Indeterminate,poles:All|{__}:All,opts:OptionsPattern[]]:=VisTransformation[ds[x],x,\[Epsilon],poles,opts];
 
 
-VisTransformation[as_Association,x_Symbol,\[Epsilon]_Symbol:Indeterminate,poles:All|{__}:All,opts:OptionsPattern[]]:=VisTransformation[as[x],x,\[Epsilon],poles,opts];
+VisTransformation[as_Association,x_Symbol,\[Epsilon]_:Indeterminate,poles:All|{__}:All,opts:OptionsPattern[]]:=VisTransformation[as[x],x,\[Epsilon],poles,opts];
 
 
 Options[VisTransformation]={Fermatica`UseFermat->False,Log->False,Debug->False,Highlighted->False,Animate->False,AnimationRate->5};
 
 
-VisTransformation[matr_?SquareMatrixQ,x_Symbol,\[Epsilon]_Symbol:Indeterminate,poles:All|{__}:All,OptionsPattern[]]:=Module[
+VisTransformation[matr_?SquareMatrixQ,x_Symbol,\[Epsilon]_:Indeterminate,poles:All|{__}:All,OptionsPattern[]]:=Module[
 (*
 Basic idea: first, find JDecompositionData for all points of the matrix.
 Then construct a graphics control
@@ -3358,13 +3391,13 @@ buttons=Grid[{
 {
 Grid[ArrayFlatten[{{index=0;
 Replace[PadRight[
-Apply[(index++;pd=polesData[[#1,3,#2,1]];Button[Switch[pd/.\[Epsilon]->0,_?Positive,Style[pd,{Lighter@Red}],_?Negative,Style[pd,{Blue,Bold}],_?PossibleZeroQ,Style[pd,{Darker@Green}],_,Style[pd,{Bold}]],clickedu[#1,#2,#3],Enabled->Dynamic[#4],Appearance->Dynamic[If[#5,{"FramedPalette","Pressed"},"FramedPalette"]],TooltipDelay->0.5,Tooltip->"Left button #"<>ToString[index],
+Apply[(index++;pd=polesData[[#1,3,#2,1]];Button[Switch[pd/.First[Solve[\[Epsilon]==0]],_?Positive,Style[pd,{Lighter@Red}],_?Negative,Style[pd,{Blue,Bold}],_?PossibleZeroQ,Style[pd,{Darker@Green}],_,Style[pd,{Bold}]],clickedu[#1,#2,#3],Enabled->Dynamic[#4],Appearance->Dynamic[If[#5,{"FramedPalette","Pressed"},"FramedPalette"]],TooltipDelay->0.5,Tooltip->"Left button #"<>ToString[index],
 Background->If[MemberQ[guided[[1]],index],Yellow,Automatic]]
 (*Item[(*,Sequence@@If[MemberQ[guided[[1]],index],{Frame\[Rule]True,FrameStyle\[Rule]Directive[Yellow,AbsoluteThickness[5]]},{}]*)]*))&,SplitBy[indices,First],{2}]
 ],{0->""},{2}],
 {Row[{"   ",x,"=",#1,", pr=",#2,"   "}]}&@@@polesData[[All,{1,2}]],
 index=0;
-Replace[PadLeft[Reverse/@Apply[(index++;pd=polesData[[#1,3,#2,1]];Button[Switch[pd/.\[Epsilon]->0,_?Positive,Style[pd,{Red,Bold}],_?Negative,Style[pd,{Lighter@Blue}],_?PossibleZeroQ,Style[pd,{Darker@Green}],_,Style[pd,{Bold}]],clickedv[#1,#2,#3],Enabled->Dynamic[#6],Appearance->Dynamic[If[#7,{"FramedPalette","Pressed"},"FramedPalette"]],TooltipDelay->0.5,Tooltip->"Right button #"<>ToString[index],
+Replace[PadLeft[Reverse/@Apply[(index++;pd=polesData[[#1,3,#2,1]];Button[Switch[pd/.First[Solve[\[Epsilon]==0]],_?Positive,Style[pd,{Red,Bold}],_?Negative,Style[pd,{Lighter@Blue}],_?PossibleZeroQ,Style[pd,{Darker@Green}],_,Style[pd,{Bold}]],clickedv[#1,#2,#3],Enabled->Dynamic[#6],Appearance->Dynamic[If[#7,{"FramedPalette","Pressed"},"FramedPalette"]],TooltipDelay->0.5,Tooltip->"Right button #"<>ToString[index],
 Background->If[MemberQ[guided[[2]],index],Yellow,Automatic]](*Item[(*,Sequence@@If[MemberQ[guided[[2]],index],{Frame\[Rule]True,FrameStyle\[Rule]Directive[Yellow,AbsoluteThickness[5]]},{}]*)]*))&,SplitBy[indices,First],{2}]
 ],{0->""},{2}]
 }}],Spacings->0,ItemSize->All,Alignment->Center]
@@ -3547,10 +3580,10 @@ If[TrueQ[OptionValue[Sort]],ii=Flatten@EntangledBlocksIndices[hie],ii=All];
 hie=hie[[ii,ii]];
 t=Replace[hie,1:>Unique["t"],{2}];
 vars=DeleteCases[Flatten[Reverse/@t],0];
-eqs=DeleteCases[Flatten[Transpose[Reverse/@(ODot[#[[ii,ii]],t,Simplify->False]-ODot[t,#[[ii,ii]]/.\[Epsilon]->\[Mu],Simplify->False])&/@m,{3,1,2}]],0];If[!OptionValue[Solve],CPrint["Returning a list {eqs,t,vars}. To find the transformation one should solve eqs\[Equal]0 with respect to Variables[t] and substitute the solution to t."];Return[{eqs,t,vars}]];
+eqs=DeleteCases[Flatten[Transpose[Reverse/@(ODot[#[[ii,ii]],t,Simplify->False]-ODot[t,#[[ii,ii]]/.First[Solve[\[Epsilon]==\[Mu],Variables[\[Epsilon]]]],Simplify->False])&/@m,{3,1,2}]],0];If[!OptionValue[Solve],CPrint["Returning a list {eqs,t,vars}. To find the transformation one should solve eqs\[Equal]0 with respect to Variables[t] and substitute the solution to t."];Return[{eqs,t,vars}]];
 If[OptionValue[Fermatica`UseFermat],
-Quiet[sol=Fermatica`FGaussSolve[eqs,vars,Reduce->True]];,
-Quiet[sol=GaussSolve[eqs,vars]]
+sol=Fermatica`FGaussSolve[eqs,vars,Reduce->True],
+sol=GaussSolve[eqs,vars]
 ];
 t[[ii,ii]]=t//.Dispatch[sol]/.MapIndexed[#->C@@#2&,Complement[vars,First/@sol]];
 t
@@ -3558,6 +3591,18 @@ t
 
 
 done[" implement FactorOut and FactorDependence using Fermat and FGaussSolve"];
+
+
+IntertwiningMatrix::usage="IntertwiningMatrix[M1,M2,vars] gives a an intertwining matrix T independent of vars, such that M1.T==T.M2";
+
+
+Module[{dummy},
+IntertwiningMatrix[M1_?SquareMatrixQ,M2_?SquareMatrixQ,vars:(_List|_Symbol):dummy]:=Module[{l=Length@M1,T,t,eqs,sol},If[l=!=Length@M2,Return[$Failed]];
+T=Array[C[#2*l+#1]&,{l,l},{1,0}];
+sol=GaussSolve[Last/@Flatten[CoefficientRules[Numerator[Factor[M1.T-T.M2]],vars]],Variables[T]];
+T/.sol
+]
+]
 
 
 FuchsifyBlock::usage="FuchsifyBlock[\!\(\*
