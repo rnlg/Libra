@@ -2390,6 +2390,7 @@ CMonitor[
 CWrite[statusline="Finding matrix residue..."];CWrite["\n"];
 If[!RatFuncQ[M,y],Message[SeriesSolutionData::notrat,yv];Return[$Failed]];
 If[(pr=PoincareRank[M,{y,0}])>0,Message[SeriesSolutionData::ppr,yv,0];Return[$Failed]];
+If[(pr=PoincareRank[M,{y,\[Infinity]}])>0,Message[SeriesSolutionData::ppr,yv,0];Return[$Failed]];
 A=SeriesCoefficient[M,{y,0,-1}];
 res=OInverse[\[Lambda]*IdentityMatrix[Length@A]-A,Fermatica`UseFermat->fflags[[1]]];(*resolvent*)
 CWrite[statusline="Finding leading expansion terms..."];CWrite["\n"];
