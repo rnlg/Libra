@@ -26,7 +26,7 @@ $LibraHomeDirectory=DirectoryName[$InputFileName];
 
 
 $LibraUseFermat=False;
-$LibraVersion="1.1beta";
+$LibraVersion="1.2";
 $LibraInputFileName=$InputFileName;
 
 
@@ -300,6 +300,13 @@ StyleBox[\"x\", \"TI\"]\) if necessary.";
 System`TransposePadRight[yt_List,x_]:=Module[{l=Max[Length/@yt],sq},Replace[Transpose[PadRight[#,l,sq]&/@yt],sq:>x,{2}]]
 
 
+System`TriangularDot::usage="TriangularDot[{a0,a1,a2,\[Ellipsis]},{b0,b1,b2,\[Ellipsis]}] gives triangular dot product {a0*b0,a0*b1+a1*b2,a0*b2+a1*b1+a2*b0,\[Ellipsis]}. The length of the resulting list is the minimal length of the arguments.";
+
+
+System`TriangularDot[list1_List,list2_List,times:Except[_List]:Times]:=Table[Inner[times[#1/.id->Identity,#2/.id->Identity]&,id/@Take[list1,k],id/@Reverse[Take[list2,k]],Plus,1],{k,Min[Length[list1],Length[list2]]}];(*
+System`TriangularDot[list1_List,list2_List,lists__List,times:Except[_List]:Times]:=System`TriangularDot[System`TriangularDot[list1,list2,times],lists,times];*)
+
+
 SetAttributes[CStaticMonitor,{HoldAll}];
 CStaticMonitor[code_,msg_,delay_:0]:=If[$Notebooks,
 Monitor[code,msg,delay],
@@ -338,7 +345,7 @@ If[i>=l,CWrite["]\n"]]
 ];
 
 
-CPrint["\n******************** ",Style["Libra v"<>ToString[$LibraVersion],{Bold}]," ********************\nLibra (\:2696) is a package for the manipulation with differential systems.\n\[Copyright] 2018-, Roman N. Lee, Budker Institute of Nuclear Physics.\nRead from: "<>$InputFileName<>" (CRC32: "<>ToString[FileHash[$InputFileName,"CRC32"]]<>")"];
+CPrint["\n******************** ",Style["Libra v"<>ToString[$LibraVersion],{Bold}]," ********************\nLibra (\:2696) is a package for the manipulation with differential systems.\nWritten by Roman N. Lee, Budker Institute of Nuclear Physics.\nRead from: "<>$InputFileName<>" (CRC32: "<>ToString[FileHash[$InputFileName,"CRC32"]]<>")"];
 
 
 todolist={};
@@ -3977,6 +3984,9 @@ Factors::usage="Factors[expr] returns the list of expr factors not trying to fac
 
 
 Factors[expr_]:=Replace[Replace[{expr},Times->Sequence,{2},Heads->True],{x_^n_Integer:>{x,n},x_:>{x,1}},{1}]
+
+
+Rookie::usage="Rookie[ds,x,e] tries to find the transformation to \[Epsilon]-form.";
 
 
 Rookie::sorry="Sorry, I've done what I could.";
