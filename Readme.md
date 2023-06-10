@@ -1,5 +1,4 @@
 # Libra package
-## Description
 
 ***Libra*** is a Mathematica package for transforming first-order linear differential systems. Its main purpose is the reduction to ε-form. 
 It can also be used for the reduction to Fuchsian form and as a convenient tool for applying linear transformations of functions. It can handle univariate, as well as multivariate systems.
