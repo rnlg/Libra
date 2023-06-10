@@ -18,7 +18,7 @@ Roman N. Lee, Budker Institute of Nuclear Physics, Novosibirsk.
 
 ## Installation
 
-1. Copy the content of the 'Source/' directory to the desired location, say `home/of/Libra`
+1. Copy the content of the `Source/` directory to the desired location, say `home/of/Libra`
 2. Change to this location with `cd home/of/Libra`
 3. Run `math -script makeShortcut.m`
 
