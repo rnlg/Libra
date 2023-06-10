@@ -11,6 +11,9 @@ Roman N. Lee, Budker Institute of Nuclear Physics, Novosibirsk.
 
 **Libra** is distributed under the terms of GNU GPLv3.
 
+## Documentation
+
+***Libra*** package is described in [CPC 267 (2021) 108058](https://doi.org/10.1016/j.cpc.2021.108058).
 
 ## Installation
 
@@ -20,3 +23,9 @@ Roman N. Lee, Budker Institute of Nuclear Physics, Novosibirsk.
 
 Result: 
 You can load Libra package from Mathematica session with ``<<Libra` ``
+
+
+
+##### Using Fermat CAS
+
+Libra can benefit from using Robert H. Lewis' [Fermat CAS](http://home.bway.net/lewis/). The interface package ***Fermatica*** can be downloaded from [Fermatica repository](https://bitbucket.org/rnlee/fermatica/src/master/). When ***Fermatica*** is installed and working, it can be loaded along with ***LiteRed2***  via `` <<Fermatica` `` and used via  option `UseFermat->True` of several Libra procedures.
