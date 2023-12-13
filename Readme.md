@@ -29,4 +29,4 @@ You can load Libra package from Mathematica session with ``<<Libra` ``
 
 ##### Using Fermat CAS
 
-Libra can benefit from using Robert H. Lewis' [Fermat CAS](http://home.bway.net/lewis/). The interface package ***Fermatica*** can be downloaded from [Fermatica repository](https://github.com/rnlg/Fermatica). When ***Fermatica*** is installed and working, it can be loaded along with ***LiteRed2***  via `` <<Fermatica` `` and used via  option `UseFermat->True` of several Libra procedures.
+Libra can benefit from using Robert H. Lewis' [Fermat CAS](http://home.bway.net/lewis/). The interface package ***Fermatica*** can be downloaded from [Fermatica repository](https://github.com/rnlg/Fermatica). When ***Fermatica*** is installed and working, it can be loaded along with ***Libra***  via `` <<Fermatica` `` and used via  option `UseFermat->True` of several Libra procedures.
