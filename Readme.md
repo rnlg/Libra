@@ -20,7 +20,7 @@ Roman N. Lee, Budker Institute of Nuclear Physics, Novosibirsk.
 
 1. Copy the content of the `Source/` directory to the desired location, say `home/of/Libra`
 2. Change to this location with `cd home/of/Libra`
-3. Run `math -script makeShortcut.m`
+3. Run `math -script makeShortcut.m` (for Mathematica version 4.1 or later, use `wolfram -script makeShortcut.m` instead)
 
 Result: 
 You can load Libra package from Mathematica session with ``<<Libra` ``
