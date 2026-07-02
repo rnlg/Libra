@@ -78,6 +78,7 @@ NilpotentQ;
 FuchsianQ;
 EFormQ;
 JFormQ;
+FlatConnectionQ;
 
 
 JDecomposition;JDecompositionData;
@@ -137,7 +138,7 @@ HistoryCheck;HistoryChop;
 
 PexpExpansion;
 II;Protect[II];
-II::usage="II[{\!\(\*SubscriptBox[\(a\), \(n\)]\),\!\(\*SubscriptBox[\(a\), \(n - 1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]a\), \(1\)]\)},x] denotes iterated integral."
+II::usage="II[{\!\(\*SubscriptBox[\(a\), \(n\)]\),\!\(\*SubscriptBox[\(a\), \(n\:f88c - 1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]a\), \(1\)]\)},x] denotes iterated integral."
 
 
 ToAlphabet;
@@ -165,6 +166,9 @@ HistoryAddLabel;HistoryLabels;HistoryLabelIndex;
 
 
 Moebius;SqrtRationalize;
+
+
+GetIfExists;
 
 
 InvertMod;QuolyMod;OQuolyMod;
@@ -276,7 +280,7 @@ Take[a,#]&/@Transpose[{bs,es}]
 System`ShuffleProduct::usage="ShuffleProduct[l1,l2] implements the shuffle product, e.g., ShuffleProduct[{a,b},{c,d}] \[LongRightArrow] {{a,b,c,d},{a,c,b,d},{a,c,d,b},{c,a,b,d},{c,a,d,b},{c,d,a,b}}.";
 
 
-System`ShuffleProduct[a_List,b_List]:=Module[{chrs=Join[a,b],nums},nums=Range[Length[chrs]];Join@(Permute[chrs,#])&/@(Join[#,Complement[nums,#]]&/@Subsets[nums,{Length[a]}])]
+System`ShuffleProduct[a_List,b_List]:=Module[{chrs=Join[a,b],rg},rg=Range[Length[chrs]];Permute[chrs,Join[#,Complement[rg,#]]]&/@Subsets[rg,{Length[a]}]]
 
 
 System`StuffleProduct::usage="StuffleProduct[l1,l2] implements the stuffle product, e.g., StuffleProduct[{a,b},{c,d}] \[LongRightArrow]{{a,b,c,d},{a,b+c,d},{a,c,b,d},{a,c,b+d},{a+c,b,d},{a+c,b+d},{a,c,d,b},{a+c,d,b},{c,a,b,d},{c,a,b+d},{c,a,d,b},{c,a+d,b},{c,d,a,b}}.\nTo replace '+' in the above expression with function f, use the option Function\[Rule]f. E.g. StuffleProduct[{a,b},{c,d},Function\[Rule]f] \[LongRightArrow]{{a,b,c,d},{a,f[b,c],d},{a,c,b,d},{a,c,f[b,d]},{f[a,c],b,d},{f[a,c],f[b,d]},{a,c,d,b},{f[a,c],d,b},{c,a,b,d},{c,a,f[b,d]},{c,a,d,b},{c,f[a,d],b},{c,d,a,b}}.";
@@ -289,14 +293,6 @@ System`StuffleProduct[alist_List,blist_List,OptionsPattern[]]:=Module[{res,ar=Ra
 res=ShuffleProduct[ar,br];
 res=Flatten[Outer[l,Sequence@@(List/@#//.{pre___,{a:Alternatives@@ar},{b:Alternatives@@br},post___}:>{pre,{s[a,b],p[a,b]},post})]&/@res]/.{s->Sequence,l->List}/.Thread[Join[ar,br]->Join[alist,blist]]/.p->OptionValue[Function]
 ]
-
-
-ShuffleExpand[ex_,h_:II]:=FixedPoint[#/.{a_*b_Plus?(!FreeQ[#,_h]&):>Distribute[a*b]}/.{
-h[a_List]*h[b_List]:>Plus@@(h/@System`ShuffleProduct[a,b]),
-h[a_List,x_]*h[b_List,x_]:>Plus@@(h[#,x]&/@System`ShuffleProduct[a,b]),
-h[a_List]^n_Integer?Positive:>h[a]^(n-2)*Plus@@(h/@System`ShuffleProduct[a,a]),
-h[a_List,x_]^n_Integer?Positive:>h[a,x]^(n-2)*Plus@@(h[#,x]&/@System`ShuffleProduct[a,a])
-}&,ex]
 
 
 System`TransposePadRight::usage="TransposePadRight[{\!\(\*SubscriptBox[
@@ -517,6 +513,12 @@ HistoryLabelIndexAhead[ds_?DSystemQ,label_String]:=Module[{li=HistoryLabelIndice
 Return[First[li]]]
 
 
+Undo::usage="Undo[ds] \[LongDash] undo last transformation\nUndo[ds,n] \[LongDash] undo last n transformations\nUndo[ds,\"label\"] \[LongDash] undo transformations after label in history (see ?HistoryAddLabel).\n\nOption HistoryChop->True will remove undone transformations from history (see ?Redo)";
+
+
+Redo::usage="Redo[ds] \[LongDash] redo last transformation\nUndo[ds,n] \[LongDash] redo last n transformations\nUndo[ds,\"label\"] \[LongDash] redo transformations up to the label in history (see ?HistoryAddLabel).";
+
+
 Options[Undo]={HistoryChop->False};
 
 
@@ -536,10 +538,10 @@ HistoryIndex[ds]^=If[n>=0,HistoryIndex[ds]+n,Length@History[ds]+n+1];CPrint[Styl
 Redo[ds_?DSystemQ,All]:=Redo[ds,-1]
 
 
-Undo[ds_?DSystemQ,label_String,opts:OptionsPattern[]]:=If[MatchQ[#,_Integer],Undo[ds,-#,opts]]&[HistoryLabelIndexBehind[ds]]
+Undo[ds_?DSystemQ,label_String,opts:OptionsPattern[]]:=If[MatchQ[#,_Integer],Undo[ds,-#,opts]]&[HistoryLabelIndexBehind[ds,label]]
 
 
-Redo[ds_?DSystemQ,label_String,opts:OptionsPattern[]]:=If[MatchQ[#,_Integer],Redo[ds,#-HistoryIndex[ds],opts]]&[HistoryLabelIndexAhead[ds]]
+Redo[ds_?DSystemQ,label_String,opts:OptionsPattern[]]:=If[MatchQ[#,_Integer],Redo[ds,#-HistoryIndex[ds],opts]]&[HistoryLabelIndexAhead[ds,label]]
 
 
 HistoryRecall[ds_?DSystemQ,n_Integer:1,OptionsPattern[]]:=If[HistoryIndex[ds]>n,
@@ -745,7 +747,7 @@ HistoryIndex[ds]^=Length@History[ds]];
 todo["rethink how HistoryBurn should work"];
 
 
-NewDSystem::usage="NewDSystem[ds,{x->Mx, y->My,\[Ellipsis]}] defines a new differential system associated with the variable ds.";
+NewDSystem::usage="NewDSystem[ds,{x->Mx, y->My,\[Ellipsis]}] defines a new differential system associated with the variable ds.\nNewDSystem[ds,ds1] creates new differential system from ds1.";
 NewDSystem::size="Size of the systems mismatch.";
 NewDSystem::error="Something went wrong. Aborting...";
 
@@ -766,7 +768,9 @@ DSystemQ[ds]^=True;
 Notations[ds]^=OptionValue[Notations];
 l=Length/@Last/@defs;
 If[!(SameQ@@l),Message[NewDSystem::size]];
-Length[ds]^=First@l;HistoryAppend[ds,{Association[defs],{NewDSystem,ds,Association[defs]}},Print->OptionValue[Print]];
+Length[ds]^=First@l;
+Dimensions[ds]^={Length[ds],Length[ds]};
+HistoryAppend[ds,{Association[defs],{NewDSystem,ds,Association[defs]}},Print->OptionValue[Print]];
 (*ToExpression[#<>"$M:=History["<>#<>"][[HistoryIndex["<>#<>"],1]];Protect["<>#<>"$M]"]&[SymbolName[ds]]*),
 Message[NewDSystem::error];Abort[];
 ];
@@ -775,6 +779,12 @@ If[TrueQ@OptionValue[Print],CPrint["Successfully created differential system for
 (*Print["Next, you might want to find denominators appearing. See ?Denominators."];*)];
 ds::usage="Differential system for "<>ToString@Length@ds<>" functions of "<>StringJoin@@Riffle[ToString/@First/@defs,","]<>".";
 
+]
+
+
+NewDSystem[ds_Symbol,ds1_?DSystemQ,opts:OptionsPattern[]]:=Module[{notations},
+notations=DeleteDuplicates@Join[Notations[ds1],OptionValue[Notations]];
+NewDSystem[ds,ds1[],Print->OptionValue[Print],Notations->notations]
 ]
 
 
@@ -1612,7 +1622,7 @@ StyleBox[\"m\", \"TI\"]\)] gives the transformation to Jordan form.";
 Options[JDSpace]={Fermatica`UseFermat->False};
 
 
-JDSpace[r_?SquareMatrixQ,a___]:=Flatten[JDTowers[r,a],1]
+JDSpace[r_?SquareMatrixQ,opts:OptionsPattern[]]:=Flatten[JDTowers[r,opts],1]
 
 
 JDTowersMod[r_?SquareMatrixQ,x_Symbol->poly_]:=Flatten[JDTowersMod[r,x->poly,#]&/@DeleteDuplicates@EValuesMod[r,x->poly],1];
@@ -1887,6 +1897,19 @@ StyleBox[\"m\", \"TI\"]\) is linear in \!\(\*
 StyleBox[\"\[Epsilon]\", \"TI\"]\).";
 EFormQ[ds_?DSystemQ,\[Epsilon]_]:=And@@(FreeQ[Factor[ds[#]/\[Epsilon]],\[Epsilon]]&/@Variables[ds])
 EFormQ[m_,\[Epsilon]_]:=FreeQ[Factor[m/\[Epsilon]],\[Epsilon]]
+
+
+Options[FlatConnectionQ]={Fermatica`UseFermat->False};
+
+
+FlatConnectionQ::usage="FlatConnectionQ[ds] checks the compatibility conditions for the system.";
+
+
+FlatConnectionQ[ds_?DSystemQ,OptionsPattern[]]:=Module[{vars=Cases[Keys[ds[]],_Symbol],id=IdentityMatrix[Length[ds]],pt,mon,check,res},
+res=(mon=StringTemplate["Checking that D[`3`[`1`],`2`]-D[`3`[`2`],`1`]+`3`[`1`].`3`[`2`]-`3`[`2`].`3`[`1`] is zero"][#1,#2,ds];pt=PrintTemporary[Style[mon<>"...",Small]];check=MatchQ[If[OptionValue[Fermatica`UseFermat],Fermatica`FPlusDot[{D[ds[#2],#1],D[ds[#1],#2],ds[#1],ds[#2]},{id,-id,-ds[#2],ds[#1]}],
+Together[D[ds[#2],#1]-D[ds[#1],#2]-ds[#1] . ds[#2]+ds[#2] . ds[#1]]],{{0...}...}];NotebookDelete[pt];If[check,PrintTemporary[Style[mon<>": Pass",{Darker@Green,Small}]],Print[Style[mon<>": Failed",{Red,Small}]]];check)&@@@Subsets[vars,{2}];
+If[MatchQ[res,{True...}],True,False]
+]
 
 
 TClosure::usage="TClosure[m_?MatrixQ] calculates transitive closure of the relation given by m.\n  Try\n(MatrixPlot/@{#,TClosure[#]})&[{{1,0,0,0},{1,0,0,0},{0,1,1,1},{0,0,1,0}}]";
@@ -2497,18 +2520,14 @@ SeriesSolutionData[M_?SquareMatrixQ,{x_,y_},OptionsPattern[]]:=
 Module[{z,xvar},xvar=x/.First[Solve[z==y,x]];ssd[M D[xvar,z]/.{x->xvar},z,y,OptionValue[Fermatica`UseFermat],OptionValue[Monitor]]];
 
 
-(*fermat --- binary number for using Fermat in several instances.*)
 ssd[M_?SquareMatrixQ,y_,yv_,fermat:(_String|_Integer|False|None|True|All):False,mon:(True|False):True]:=Module[
-{pr,A,res,T,JF,y2A,p,evs,fp,Q,poles,dens,qs,Bs,\[Lambda],tmp,
+{dinfo,nt,A,res,T,JF,y2A,p,evs,fp,Q,Qi,poles,dens,qs,Bs,\[Lambda],tmp,
 Rcoefs,rcoefs,n,Rdata,ly,
 statusline="",secondline="",fflags=Replace[IntegerDigits[Replace[fermat,{False|None->0,True|All->31,f_String:>FromDigits[f,2]}],2,5],{1->True,0->False},{1}]},
 CMonitor[
 CWrite[statusline="Calculating Poincare rank..."];CWrite["\n"];
-(*If[!RatFuncQ[M,y],Message[SeriesSolutionData::notrat,yv];Return[$Failed]];
-*)If[(PoincareRank[M,{y,0},Fermatica`UseFermat->fflags[[1]]])>0,Message[SeriesSolutionData::ppr,yv,0];Return[$Failed]];
+If[(PoincareRank[M,{y,0},Fermatica`UseFermat->fflags[[1]]])>0,Message[SeriesSolutionData::ppr,yv,0];Return[$Failed]];
 CWrite[statusline="Calculating Poincare rank at infinity..."];CWrite["\n"];
-pr=PoincareRank[M,{y,\[Infinity]},Fermatica`UseFermat->fflags[[1]]];
-(*If[pr>0,Message[SeriesSolutionData::ppr,yv,\[Infinity]]];*)
 CWrite[statusline="Finding matrix residue..."];CWrite["\n"];
 A=If[TrueQ[fflags[[1]]],Fermatica`FSeriesCoefficient[M,{y,0,-1}],SeriesCoefficient[M,{y,0,-1}]];
 CWrite[statusline="Finding resolvent..."];CWrite["\n"];
@@ -2522,19 +2541,15 @@ CWrite[statusline="Evaluating matrix exponent..."];CWrite["\n"];(*y2A stands for
 y2A=Plus@@(Function[a,statusline="Evaluating matrix exponent: calculating residue at "<>ToString[a,InputForm];
 Map[Plus@@MapIndexed[p[a,First@#2-1]*#1&,CoefficientList[#,ly]]&,SeriesCoefficient[res*Exp[(\[Lambda]-a)*ly],{\[Lambda],a,-1}],{2}]]/@evs);(*Now we find common denominator Q, Eq(6) of DESS paper*)
 CWrite[statusline="Getting rid  of denominators..."];CWrite["\n"];
-(*poles=DeleteCases[PolesPosition[M,y],\[Infinity]|0];
-Q=Times@@((y-#)^(1+PoincareRank[M,{y,#}])&/@poles);*)
-Q=1;
-While[{}=!=(dens=Denominators[If[TrueQ[fflags[[1]]],Fermatica`FTogether[M*Q],Together[M*Q]],y]),
-Q*=PolynomialLCM[Sequence@@dens];
-];
-Q=Numerator@Together[Q/y];
+nt=0;
+Q=(dinfo=DenominatorsInfo[#,y];
+Qi=Times@@(Power[#1,#2+1]&@@@DeleteCases[dinfo,{y|1/y,_}]);nt=Max[nt,Exponent[Qi,y]+1+Max[Cases[dinfo,{1/y,p_}:>p],0]];Qi)&/@M;
 CWrite[statusline="Calculating qs..."];CWrite["\n"];
-qs=Join[CoefficientList[Q,y],ConstantArray[0,Max[pr,0]]];
+qs=Transpose[CoefficientList[#,y,nt]&/@Q];
 CWrite[statusline="Calculating Bs..."];CWrite["\n"];
-Bs=Coefficient[If[TrueQ[fflags[[1]]],Fermatica`FTogether[Q(y M-\[Lambda] IdentityMatrix[Length@M])],Together[Q(y M-\[Lambda] IdentityMatrix[Length@M])]],y,#]&/@Range[0,Length[qs]-1];
+Bs=Coefficient[If[TrueQ[fflags[[1]]],Fermatica`FTogether[Q*(y M-\[Lambda] IdentityMatrix[Length@M])],Together[Q*(y M-\[Lambda] IdentityMatrix[Length@M])]],y,#]&/@Range[0,Length[qs]-1];
 CWrite[statusline="Evaluating recurrence coefficients..."];CWrite["\n"];
-Rcoefs=Function[{\[Alpha],k},Evaluate@MapThread[bjf[#1,#2*IdentityMatrix[Length@M],k+1]&,{MapIndexed[(#/.{\[Lambda]->\[Alpha]+n-First[#2]+1})&,Bs],-qs},1](*Function[n,]*)];
+Rcoefs=Function[{\[Alpha],k},Evaluate@MapThread[bjf[#1,DiagonalMatrix[#2](*#2*IdentityMatrix[Length@M]*),k+1]&,{MapIndexed[(#/.{\[Lambda]->\[Alpha]+n-First[#2]+1})&,Bs],-qs},1](*Function[n,]*)];
 Rdata=Function[{\[Alpha],k},CWrite[statusline="Evaluating recurrence coefficients for power "<>ToString[\[Alpha],InputForm]<>"..."];CWrite["\n"];
 rcoefs=Rcoefs[\[Alpha],k](*[n]*);
 tmp=OInverse[-rcoefs[[1]],Fermatica`UseFermat->fflags[[4]]];(*may be improved by dedicated calculation of inverse of bjf with 
@@ -2549,10 +2564,10 @@ ConstructSeriesSolution::usage="ConstructSeriesSolution[rdata_,{x_,o_}] makes a 
 ConstructSeriesSolution::mixed="Since Mathematica treats generalized power series poorly, using options O\[Rule]True and Split\[Rule]False simultaneously is not recommended.";
 
 
-Options[ConstructSeriesSolution]={O->False,Split->False,Simplify->Factor,SeriesData->SeriesData};
+Options[ConstructSeriesSolution]={O->False,Split->False,Simplify->Factor,SeriesData->SeriesData,Fermatica`UseFermat->False};
 
 
-ConstructSeriesSolution[rdata_,{x_,o_}, OptionsPattern[]]:=Module[{zero,c,n,k,sdata,sd,sdcoefs,sf=OptionValue[Simplify],remainder,Oo=OptionValue[O],Orule,So=TrueQ@OptionValue[Split],z},
+ConstructSeriesSolution[rdata_,{x_,o_}, OptionsPattern[]]:=Module[{zero,c,n,k,sdata,sd,sdcoefs,sf=OptionValue[Simplify],remainder,Oo=OptionValue[O],Orule,So=TrueQ@OptionValue[Split],z,usefer=OptionValue[Fermatica`UseFermat]},
 If[TrueQ@Oo&&!So,Message[ConstructSeriesSolution::mixed]];
 Orule=Replace[Oo,{True|False->{z->x},y_:>{z->y}}];
 remainder=If[TrueQ@Not[Oo],0,x^o O[x]];
@@ -2561,7 +2576,7 @@ n=Last@Dimensions[init];
 zero=ConstantArray[0,{n,n}];(*\[DoubleLongLeftArrow] this is to avoid strange behaviour for empty series*)
 Clear[c];
 c[0]=init;c[k_Integer?Positive]:=(Quiet[Unset[c[k-M-1]]];(*clean up*)
-c[k]=sf[Sum[Dot[coefs[k][[m]],c[k-m]],{m,Min[M,k]}]]);
+c[k]=If[usefer,Fermatica`FPlusDot[Table[coefs[k][[m]],{m,Min[M,k]}],Table[c[k-m],{m,Min[M,k]}]](*Fermatica`FPlus@@Table[Fermatica`FDot[coefs[k][[m]],c[k-m]],{m,Min[M,k]}]*),sf[Sum[Dot[coefs[k][[m]],c[k-m]],{m,Min[M,k]}]]]);
 sdcoefs=Dot[((Log[x]^#/#!)&/@Range[0,llp]),Partition[#,n]]&/@(Replace[Table[c[k],{k,0,o}],0->zero,{1}](*Added 24.06.2021*)/.SeriesData->OptionValue[SeriesData](*/Added 24.06.2021*));
 z^lp*If[TrueQ@Not[Oo],zero+Table[x^k,{k,0,o}] . sdcoefs,MapThread[SeriesData[x,0,{##},0,o+1,1]&,Append[sdcoefs,zero],2]]
 ]@@@rdata)/.Orule;
@@ -2652,57 +2667,6 @@ res=NestList[Function[pr,i++;CWrite["."];t=Expand[Dot[op,pr]];Plus@@((Coefficien
 i,0,"Pexp"];
 Replace[form,{Split:>res,Together:>Plus@@res,\[Epsilon]_:>MapThread[SeriesData[\[Epsilon],0,{##},0,n+1,1]&,res ,2]}]
 ]
-
-
-InsertionPositions[m_Integer,n_Integer]:=Module[{ss,range},
-range=Range[n]-1;
-#-range&/@Subsets[Range[m+n],{n}]
-]
-ShuffleProductNestList[l_,list_List,n_Integer]:=Module[{len=Length@list,k},
-Table[Insert[list,l,List/@#]&/@InsertionPositions[len,k],{k,0,n}]
-]
-
-
-todo["InsertionPositions can probably be written in C"];
-
-
-FactorLeadingLetter[expr_,l_,h_:II]:=Module[{hs,hrules={},shuffleRule,ex=expr,k,il,i},
-shuffleRule=h[{ls:(l)..,b1:Except[l],bs___},x___]:>Plus@@MapIndexed[Function[{shs,il},i=First[il]-1;((-1)^i)*h[Drop[{ls},-i],x]*Plus@@(h[Prepend[#,b1],x]&/@shs)],ShuffleProductNestList[l,{bs},Length@{ls}]];
-hs=DeleteDuplicates[Cases[ex,h[{(l)..,Except[l],___},x___],All]];
-hrules=Thread[hs->Replace[hs,shuffleRule,{1}]];
-ex=ex/.Dispatch[hrules]/.h[ls:{(l)..},x___]:>h[{l},x]^Length[ls]/Length[ls]!;
-Return[ex]
-]
-
-
-FactorTrailingLetter[expr_,l_,h_:II]:=Module[{hs,hrules={},shuffleRule,ex=expr,k,il,i},
-shuffleRule=h[{bs___,b1:Except[l],ls:(l)..},x___]:>Plus@@MapIndexed[Function[{shs,il},i=First[il]-1;((-1)^i)*h[Drop[{ls},-i],x]*Plus@@(h[Append[#,b1],x]&/@shs)],ShuffleProductNestList[l,{bs},Length@{ls}]];
-hs=DeleteDuplicates[Cases[ex,h[{___,Except[l],(l)..},x___],All]];
-hrules=Thread[hs->Replace[hs,shuffleRule,{1}]];
-ex=ex/.Dispatch[hrules]/.h[ls:{(l)..},x___]:>h[{l},x]^Length[ls]/Length[ls]!;
-Return[ex]
-]
-
-
-ExpandLetters::usage="ExpandLetters[expr_,alphabet_,h_:II] distributes iterated integrals over the sums of letters. E.g., ExpandLetters[II[{w1+w2,w1-2w2}],{w1,w2}] gives II[{w1,w1}]-2 II[{w1,w2}]+II[{w2,w1}]-2 II[{w2,w2}]. alphabet can be either list or a pattern.\nExamples:\n   ExpandLetters[II[{w1+w2,w1-2w2}],{w1,w2}] \[DoubleLongRightArrow] II[{w1,w1}]-2 II[{w1,w2}]+II[{w2,w1}]-2 II[{w2,w2}].\n   ExpandLetters[II[{w[0]+w[1],w[2]-w[3]}],_w] \[DoubleLongRightArrow] II[{w[0],w[2]}]-II[{w[0],w[3]}]+II[{w[1],w[2]}]-II[{w[1],w[3]}].";
-
-
-ExpandLetters[expr_,alphabet_,h_:II]:=Module[{pat=Replace[alphabet,{a__}:>Alternatives[a]],l},
-expr/.h[inds_,x___]:>h[Collect[inds,pat],x]/.h[{___,0,___},x___]->0/.h[inds_?(MemberQ[Head/@#,Plus]&),x___]:>(Distribute[l@@inds]/.l->(h[{##},x]&))//.h[{a___,b_?(FreeQ[#,pat]&)*c_,d___},x___]:>b*h[{a,c,d},x]
-]
-
-
-ConvertGtoH[ex_]:=Module[{gs=DeleteDuplicates[Cases[ex,Symbol["G"][__],All]],gs1},gs1=FactorTrailingLetter[gs,0,Symbol["G"]]/.Symbol["G"][l0:{(0|1|-1)...,(1|-1)},x_]:>(-1)^Count[l0,1] Symbol["H"][Length[#]*Last[#]&/@Split[l0,#1===0&],x]/.{Symbol["G"][{0},x_]:>Symbol["H"][{0},x],Symbol["G"][{},_]->1};
-ex/.Dispatch[Thread[gs->gs1]]
-];
-
-
-ConvertHtoZ[ex_]:=Module[{hs=DeleteDuplicates[Cases[ex,(Symbol["H"]|Symbol["HPL"])[a__]:>Symbol["H"][a],All]],hs1},hs1=Replace[hs,Symbol["H"][l:{Except[0]...},1]:>(Times@@Sign[l]) Symbol["MZV"][Sign[Prepend[Ratios[l],First[l]]]*Abs[l]],{1}];
-ex/.Dispatch[Thread[hs->hs1]]
-]
-
-
-ConvertGtoZ=ConvertHtoZ@*ConvertGtoH
 
 
 GetL::usage="GetL[M,T,{x,y(x)},cs] calculates the adapter for coefficients cs.";
@@ -2846,6 +2810,62 @@ cs
 ]
 
 
+ShuffleExpand::usage="ShuffleExpand[ex_,h_:(G|II)] expands products of h[{...},...] assuming shuffling relations wrt the first argument.";ShuffleExpand[ex_,head_:(G|II)]:=FixedPoint[#/.{a_*b_Plus?(!FreeQ[#,head[__]]&):>Distribute[a*b]}/.{
+(h:head)[a_List,x___]*head[b_List,x___]:>Plus@@(h[#,x]&/@System`ShuffleProduct[a,b]),
+(h:head)[a_List,x___]^n_Integer?Positive:>h[a,x]^(n-2)*Plus@@(h[#,x]&/@System`ShuffleProduct[a,a])
+}&,ex]
+
+
+InsertionPositions[m_Integer,n_Integer]:=Function[rg,#-rg&/@Subsets[Range[m+n],{n}]][Range[n]-1]
+
+
+FactorLeadingLetter::usage="FactorLeadingLetter[ex_,l_:0,h_:(G|II)] factors leading letter 'l' in each h[{...},...] assuming h satisfies shuffling relations wrt its first argument.\nOptions:\n\tPower\[Rule]True|False:True determines whether to rewrite h[{l,l,..},...] via power of h[{l},...].";
+Options[FactorLeadingLetter]={Power->True};
+FactorLeadingLetter[expr_,l_:0,head_:(G|II),OptionsPattern[]]:=Module[{ex=expr,flrule,hs,hrules,m,n},
+flrule=(h:head)[{ls:(l)..,b1:Except[l],bs___},x___]:>(m=Length[{bs}];n=Length[{ls}];Sum[(-1)^i*h[ConstantArray[l,n-i],x] Plus@@(h[Insert[{b1,bs},l,List/@#+1],x]&/@InsertionPositions[m,i]),{i,0,n}]);
+hs=DeleteDuplicates[Cases[ex,head[{l,__},___],All]];
+hrules=Replace[hs,flrule,{1}];
+If[OptionValue[Power],hrules=hrules/.(h:head)[ls:{(l)...},x___]:>h[{l},x]^Length[ls]/Length[ls]!];
+hrules=Thread[hs->hrules];
+ex=ex/.Dispatch[hrules];
+Return[ex]
+]
+
+
+FactorTrailingLetter::usage="FactorTrailingLetter[ex_,l_:0,h_:(G|II)] factors trailing letter 'l' in each h[{...},...] assuming h satisfies shuffling relations wrt its first argument.\nOptions:\n\tPower\[Rule]True|False:True determines whether to rewrite h[{l,l,..},...] via power of h[{l},...].";
+Options[FactorTrailingLetter]={Power->True};
+FactorTrailingLetter[expr_,l_:0,head_:(G|II),OptionsPattern[]]:=Module[{ex=expr,flrule,hs,hrules,m,n},
+flrule=(h:head)[{bs___,b1:Except[l],ls:(l)..},x___]:>(m=Length[{bs}];n=Length[{ls}];Sum[(-1)^i*h[ConstantArray[l,n-i],x] Plus@@(h[Insert[{bs,b1},l,List/@#],x]&/@InsertionPositions[m,i]),{i,0,n}]);
+hs=DeleteDuplicates[Cases[ex,head[{__,l},___],All]];
+hrules=Replace[hs,flrule,{1}];
+If[OptionValue[Power],hrules=hrules/.(h:head)[ls:{(l)...},x___]:>h[{l},x]^Length[ls]/Length[ls]!];
+hrules=Thread[hs->hrules];
+ex=ex/.Dispatch[hrules];
+Return[ex]
+]
+
+
+ExpandLetters::usage="ExpandLetters[expr_,alphabet_,h_:II] distributes iterated integrals over the sums of letters. E.g., ExpandLetters[II[{w1+w2,w1-2w2}],{w1,w2}] gives II[{w1,w1}]-2 II[{w1,w2}]+II[{w2,w1}]-2 II[{w2,w2}]. alphabet can be either list or a pattern.\nExamples:\n   ExpandLetters[II[{w1+w2,w1-2w2}],{w1,w2}] \[DoubleLongRightArrow] II[{w1,w1}]-2 II[{w1,w2}]+II[{w2,w1}]-2 II[{w2,w2}].\n   ExpandLetters[II[{w[0]+w[1],w[2]-w[3]}],_w] \[DoubleLongRightArrow] II[{w[0],w[2]}]-II[{w[0],w[3]}]+II[{w[1],w[2]}]-II[{w[1],w[3]}].";
+
+
+ExpandLetters[expr_,alphabet_,h_:II]:=Module[{pat=Replace[alphabet,{a__}:>Alternatives[a]],l},
+expr/.h[inds_,x___]:>h[Collect[inds,pat],x]/.h[{___,0,___},x___]->0/.h[inds_?(MemberQ[Head/@#,Plus]&),x___]:>(Distribute[l@@inds]/.l->(h[{##},x]&))//.h[{a___,b_?(FreeQ[#,pat]&)*c_,d___},x___]:>b*h[{a,c,d},x]
+]
+
+
+ConvertGtoH[ex_]:=Module[{gs=DeleteDuplicates[Cases[ex,Symbol["G"][__],All]],gs1},gs1=FactorTrailingLetter[gs,0,Symbol["G"]]/.Symbol["G"][l0:{(0|1|-1)...,(1|-1)},x_]:>(-1)^Count[l0,1] Symbol["H"][Length[#]*Last[#]&/@Split[l0,#1===0&],x]/.{Symbol["G"][{0},x_]:>Symbol["H"][{0},x],Symbol["G"][{},_]->1};
+ex/.Dispatch[Thread[gs->gs1]]
+];
+
+
+ConvertHtoZ[ex_]:=Module[{hs=DeleteDuplicates[Cases[ex,(Symbol["H"]|Symbol["HPL"])[a__]:>Symbol["H"][a],All]],hs1},hs1=Replace[hs,Symbol["H"][l:{Except[0]...},1]:>(Times@@Sign[l]) Symbol["MZV"][Sign[Prepend[Ratios[l],First[l]]]*Abs[l]],{1}];
+ex/.Dispatch[Thread[hs->hs1]]
+]
+
+
+ConvertGtoZ=ConvertHtoZ@*ConvertGtoH
+
+
 DiffMod::usage="DiffMod[ex,x,{y\[Rule]p(x,y),z\[Rule]q(x,z),...}] differentiates with respect to x taking into account the notations {y\[Rule]p(x,y),z\[Rule]q(x,z),...}."
 
 
@@ -2898,7 +2918,11 @@ StyleBox[\"t\", \"TI\"]\)-D[\!\(\*
 StyleBox[\"t\", \"TI\"]\),\!\(\*
 StyleBox[\"x\", \"TI\"]\)]).\nTransform[\!\(\*
 StyleBox[\"ds\", \"TI\"]\),\!\(\*
-StyleBox[\"t\", \"TI\",\nFontSize->12]\)] transforms the differential system.";
+StyleBox[\"t\", \"TI\",\nFontSize->12]\)] transforms the differential system.\nTransform[\!\(\*
+StyleBox[\"ds\", \"TI\"]\)] returns total transformation of the differential system.";
+
+
+Transform[ds_?DSystemQ,opts:OptionsPattern[]]:=OverallTransformation[ds,opts][Transform];
 
 
 Options[Transform]={HistoryChop->False,Simplify->Factor,Inverse->False,Print->True,Fermatica`UseFermat->False};
@@ -3018,7 +3042,7 @@ m
 done["Transform[ds,{T,Ti}]: add QuolyMod in the check that T.Ti=IdentityMatrix"];
 
 
-ChangeVar::usage="ChangeVar[ds,{rules},{vars}] changes variable in the matrix.";
+ChangeVar::usage="ChangeVar[ds,{rules},{vars}] changes variable in the matrix.\nChangeVar[ds] returns the overall variables change od the differntial system.";
 
 
 ChangeVar[m_?SquareMatrixQ,x_->xviay_,y_Symbol]:=Factor[m D[xviay,y]/.x->xviay]
@@ -3027,10 +3051,13 @@ ChangeVar[m_?SquareMatrixQ,x_->xviay_,y_Symbol]:=Factor[m D[xviay,y]/.x->xviay]
 Options[ChangeVar]={Simplify->Factor,Print->True}
 
 
-ChangeVar[ds_?DSystemQ,rs1:_Rule|{__Rule},ys1:_Symbol|_List,OptionsPattern[]]:=Module[{keys=Keys[ds[[]]],M,rs=Flatten[{rs1}],ys=Flatten[{ys1}],nkeys=First/@(Notations[ds]/.Association->List),sf},
+ChangeVar[ds_?DSystemQ,opts:OptionsPattern[]]:=OverallTransformation[ds,opts][ChangeVar];
+
+
+ChangeVar[ds_?DSystemQ,rs1:_Rule|{__Rule},ys1:_Symbol|_List,OptionsPattern[]]:=Module[{keys=Keys[ds[[]]],M,rs=Flatten[{rs1}],ys=Flatten[{ys1}],sf},
 sf=Replace[OptionValue[Simplify],{True->Simplify,False|None->Identity}];
 M=Association@@(Function[y,y->sf[Plus@@((D[#1/.rs,y]ds[#1]/.rs)&/@keys)]]/@ys);
-unprotect[ds,Notations[ds]^=Numerator@Together[Notations[ds]/.rs]];
+unprotect[ds,Notations[ds]^=DeleteCases[MapAt[Numerator@*Together,Notations[ds]/.rs,{All,2}],_->0]];
 HistoryAppend[ds,{M,{ChangeVar,ds,rs,ys}},Print->OptionValue[Print]];
 Protect[ys1];
 ]
@@ -3465,19 +3492,19 @@ StyleBox[\"m\", \"TI\"]\),\!\(\*
 StyleBox[\"x\", \"TI\"]\)] is a visual tool for finding transformation. Soon to replace VisBalancing.";
 
 
-VisTransformation[ds_,{x_Symbol,poles_},\[Epsilon]_:Indeterminate,opts:OptionsPattern[]]:=VisTransformation[ds[x],x,\[Epsilon],poles,opts]
-
-
-VisTransformation[ds_?DSystemQ,x_Symbol,\[Epsilon]_:Indeterminate,poles:All|{__}:All,opts:OptionsPattern[]]:=VisTransformation[ds[x],x,\[Epsilon],poles,opts];
-
-
-VisTransformation[as_Association,x_Symbol,\[Epsilon]_:Indeterminate,poles:All|{__}:All,opts:OptionsPattern[]]:=VisTransformation[as[x],x,\[Epsilon],poles,opts];
-
-
 Options[VisTransformation]={Fermatica`UseFermat->False,Log->False,Debug->False,Highlighted->False,Animate->False,AnimationRate->5,FontSize->Medium,ItemSize->All};
 
 
-VisTransformation[matr_?SquareMatrixQ,x_Symbol,\[Epsilon]_:Indeterminate,poles:All|{__}:All,OptionsPattern[]]:=Module[
+VisTransformation[ds_,{x_Symbol,poles_},\[Epsilon]_:Indeterminate,opts:OptionsPattern[]]:=VisTransformation[ds[x],x,\[Epsilon],poles,opts]
+
+
+VisTransformation[ds_?DSystemQ,x_Symbol,\[Epsilon]_:Indeterminate,poles:All|{__}|Rational:All,opts:OptionsPattern[]]:=VisTransformation[ds[x],x,\[Epsilon],poles,opts];
+
+
+VisTransformation[as_Association,x_Symbol,\[Epsilon]_:Indeterminate,poles:All|{__}|Rational:All,opts:OptionsPattern[]]:=VisTransformation[as[x],x,\[Epsilon],poles,opts];
+
+
+VisTransformation[matr_?SquareMatrixQ,x_Symbol,\[Epsilon]_:Indeterminate,poles:All|{__}|Rational:All,OptionsPattern[]]:=Module[
 (*
 Basic idea: first, find JDecompositionData for all points of the matrix.
 Then construct a graphics control
@@ -3485,6 +3512,7 @@ Then construct a graphics control
 {
 n=Length@matr,
 m=matr,i=0,
+eptozero=If[\[Epsilon]===Indeterminate,{},First[Solve[\[Epsilon]==0]]],
 polespos,polesData,pd,
 indices,index,
 prevu,prevv,
@@ -3516,7 +3544,7 @@ guidedlist=Replace[OptionValue[Highlighted],{Except[_List]->{}}];
 animationlist=Replace[OptionValue[Animate],Highlighted->guidedlist];
 animationdelay=1/OptionValue[AnimationRate];
 If[animationlist==={},Return[transformation]];
-polespos=Replace[poles,All->PolesPosition[m,x]];
+polespos=Replace[poles,{All->PolesPosition[m,x],Rational->PolesPosition[m,x,Algebraics->False]}];
 updateInteface=(
 If[guidedlist=!={},
 guided=First[guidedlist];guidedlist=Rest[guidedlist],
@@ -3556,13 +3584,13 @@ buttons=Grid[{
 {
 Grid[ArrayFlatten[{{index=0;
 Replace[PadRight[
-Apply[(index++;pd=polesData[[#1,3,#2,1]];Button[Switch[pd/.First[Solve[\[Epsilon]==0]],_?Positive,Style[pd,{Lighter@Red,FontSize->fsize}],_?Negative,Style[pd,{Blue,Bold,FontSize->fsize}],_?PossibleZeroQ,Style[pd,{Darker@Green,FontSize->fsize}],_,Style[pd,{Bold,FontSize->fsize}]],clickedu[#1,#2,#3],Enabled->Dynamic[#4],Appearance->Dynamic[If[#5,{"FramedPalette","Pressed"},"FramedPalette"]],TooltipDelay->0.5,Tooltip->"Left button #"<>ToString[index],
+Apply[(index++;pd=polesData[[#1,3,#2,1]];Button[Switch[pd/.eptozero,_?Positive,Style[pd,{Lighter@Red,FontSize->fsize}],_?Negative,Style[pd,{Blue,Bold,FontSize->fsize}],_?PossibleZeroQ,Style[pd,{Darker@Green,FontSize->fsize}],_,Style[pd,{Bold,FontSize->fsize}]],clickedu[#1,#2,#3],Enabled->Dynamic[#4],Appearance->Dynamic[If[#5,{"FramedPalette","Pressed"},"FramedPalette"]],TooltipDelay->0.5,Tooltip->"Left button #"<>ToString[index],
 Background->If[MemberQ[guided[[1]],index],Yellow,Automatic],FrameMargins->0]
 (*Item[(*,Sequence@@If[MemberQ[guided[[1]],index],{Frame\[Rule]True,FrameStyle\[Rule]Directive[Yellow,AbsoluteThickness[5]]},{}]*)]*))&,SplitBy[indices,First],{2}]
 ],{0->""},{2}],
 {Row[{"   ",x,"=",#1,", pr=",#2,"   "}]}&@@@polesData[[All,{1,2}]],
 index=0;
-Replace[PadLeft[Reverse/@Apply[(index++;pd=polesData[[#1,3,#2,1]];Button[Switch[pd/.First[Solve[\[Epsilon]==0]],_?Positive,Style[pd,{Red,Bold,FontSize->fsize}],_?Negative,Style[pd,{Lighter@Blue,FontSize->fsize}],_?PossibleZeroQ,Style[pd,{Darker@Green,FontSize->fsize}],_,Style[pd,{Bold,FontSize->fsize}]],clickedv[#1,#2,#3],Enabled->Dynamic[#6],Appearance->Dynamic[If[#7,{"FramedPalette","Pressed"},"FramedPalette"]],TooltipDelay->0.5,Tooltip->"Right button #"<>ToString[index],
+Replace[PadLeft[Reverse/@Apply[(index++;pd=polesData[[#1,3,#2,1]];Button[Switch[pd/.eptozero,_?Positive,Style[pd,{Red,Bold,FontSize->fsize}],_?Negative,Style[pd,{Lighter@Blue,FontSize->fsize}],_?PossibleZeroQ,Style[pd,{Darker@Green,FontSize->fsize}],_,Style[pd,{Bold,FontSize->fsize}]],clickedv[#1,#2,#3],Enabled->Dynamic[#6],Appearance->Dynamic[If[#7,{"FramedPalette","Pressed"},"FramedPalette"]],TooltipDelay->0.5,Tooltip->"Right button #"<>ToString[index],
 Background->If[MemberQ[guided[[2]],index],Yellow,Automatic],FrameMargins->0](*Item[(*,Sequence@@If[MemberQ[guided[[2]],index],{Frame\[Rule]True,FrameStyle\[Rule]Directive[Yellow,AbsoluteThickness[5]]},{}]*)]*))&,SplitBy[indices,First],{2}]
 ],{0->""},{2}]
 }}],Spacings->0,ItemSize->isize,Alignment->Center]
@@ -3937,6 +3965,7 @@ tospan[list_]:=ToString@list;
 
 
 Fuchsify[ds_?DSystemQ,x_Symbol,b___]:=Fuchsify[ds[x],{x,Notations[ds]},b]
+Fuchsify[ds_Association,xn:({x_Symbol,___}|x_Symbol),b___]:=Fuchsify[ds[x],xn,b]
 
 
 todo["Decide what to do when NotationToRule is not possible (many-variate setup, notation is irrelevant to the specified variable)"];
@@ -3996,15 +4025,19 @@ StyleBox[\"x\", \"TI\"]\)] tries to determine all singular points of the matrix 
 StyleBox[\"m\", \"TI\"]\).";
 
 
-PolesPosition[m_List,x_Symbol]:=Module[{xf,t,mr},
-xf=x/.#&/@Union@Flatten[Solve[#==0,x]&/@Denominators[{m},x]];
+Options[PolesPosition]={Algebraics->True};
+
+
+PolesPosition[m_List,x_Symbol,OptionsPattern[]]:=Module[{xf,t,mr,dens=Denominators[{m},x]},
+If[!OptionValue[Algebraics],dens=Select[dens,Exponent[#,x]===1&]];
+xf=x/.#&/@Union@Flatten[Solve[#==0,x]&/@dens];
 mr=Factor[m/t^2/.x->1/t];
 If[Quiet[Check[mr/.t->0;False,True,Power::infy]],Sort[Append[xf,\[Infinity]]],Sort[xf]]
 ]
 
 
-PolesPosition[ds_Association,x_Symbol]:=PolesPosition[ds[x],x]
-PolesPosition[ds_?DSystemQ,x_Symbol]:=PolesPosition[ds[x],x]
+PolesPosition[ds_Association,x_Symbol,opts:OptionsPattern[]]:=PolesPosition[ds[x],x,opts]
+PolesPosition[ds_?DSystemQ,x_Symbol,opts:OptionsPattern[]]:=PolesPosition[ds[x],x,opts]
 
 
 PoincareRank::usage="PoincareRank[\!\(\*
@@ -4151,7 +4184,7 @@ transformation=HistoryConsolidate[b,Inverse->False]
 ]
 
 
-FirstDependence::usage="FirstDependence[{\!\(\*SubscriptBox[\(v\), \(1\)]\),\!\(\*SubscriptBox[\(v\), \(2\)]\),\[Ellipsis],\!\(\*SubscriptBox[\(v\), \(n\)]\)}] returns a list {\!\(\*SubscriptBox[\(c\), \(1\)]\),\!\(\*SubscriptBox[\(c\), \(2\)]\),\[Ellipsis],\!\(\*SubscriptBox[\(c\), \(k - 1\)]\)}, such that \!\(\*SubscriptBox[\(v\), \(1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]v\), \(k - 1\)]\) are linearly independent and \!\(\*SubscriptBox[\(v\), \(k\)]\)=\!\(\*SubscriptBox[\(c\), \(1\)]\)\!\(\*SubscriptBox[\(v\), \(1\)]\)+\[Ellipsis]+\!\(\*SubscriptBox[\(c\), \(k - 1\)]\)\!\(\*SubscriptBox[\(v\), \(k - 1\)]\). If there are no linear dependence, it returns a zero list of length n.";
+FirstDependence::usage="FirstDependence[{\!\(\*SubscriptBox[\(v\), \(1\)]\),\!\(\*SubscriptBox[\(v\), \(2\)]\),\[Ellipsis],\!\(\*SubscriptBox[\(v\), \(n\)]\)}] returns a list {\!\(\*SubscriptBox[\(c\), \(1\)]\),\!\(\*SubscriptBox[\(c\), \(2\)]\),\[Ellipsis],\!\(\*SubscriptBox[\(c\), \(k\:f88c - 1\)]\)}, such that \!\(\*SubscriptBox[\(v\), \(1\)]\),\!\(\*SubscriptBox[\(\[Ellipsis]v\), \(k\:f88c - 1\)]\) are linearly independent and \!\(\*SubscriptBox[\(v\), \(k\)]\)=\!\(\*SubscriptBox[\(c\), \(1\)]\)\!\(\*SubscriptBox[\(v\), \(1\)]\)+\[Ellipsis]+\!\(\*SubscriptBox[\(c\), \(k\:f88c - 1\)]\)\!\(\*SubscriptBox[\(v\), \(k\:f88c - 1\)]\). If there are no linear dependence, it returns a zero list of length n.";
 FirstDependence[vs_?MatrixQ]:=Module[{n=Length@vs,k,vks,cs},
 cs=ConstantArray[0,{n}];
 Do[If[MatrixRank[vks=Take[vs,k]]<k,cs=Most[-#]/Last[#]&@@NullSpace[Transpose[vks]];Break[]],{k,n}];
@@ -4222,10 +4255,10 @@ patternQ[ex_]:=!FreeQ[ex,Pattern|Except|PatternTest|Blank|BlankSequence|BlankNul
 spantolist[span_,l_]:=Replace[span,{Span[a_Integer,b_Integer]:>Range[Mod[a+l+1,l+1],Mod[b+l+1,l+1]],Span[a_Integer,All]:>Range[Mod[a+l+1,l+1],l]}]
 
 
-End[];
-
-
 GetIfExists[name_String]:=If [FileExistsQ[#],Get[#];Libra`Private`CPrint["Loaded addon "<>FileBaseName[#]<>" (MD5: "<>ToString[FileHash[#,"MD5"]]<>")"]]&/@FileNames[name,{DirectoryName[$LibraInputFileName]}];
+
+
+End[];
 
 
 GetIfExists["Addons/*.m"];
