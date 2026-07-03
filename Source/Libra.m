@@ -195,6 +195,12 @@ Rookie;BirkhoffGrothendieck;
 Begin["`Private`"]
 
 
+(*bugfix for Mma 12*)
+If[MapAt[Identity,{},{All,1}]=!={},
+Unprotect[MapAt];MapAt[_,{},{All,___}]=MapAt[_,{},{;;,___}]={};Protect[MapAt]
+];
+
+
 System`GetFactor::usage="GetFactor[\!\(\*
 StyleBox[\"ex\", \"TI\"]\),\!\(\*
 StyleBox[\"patt\", \"TI\"]\)] returns a product of factors in \!\(\*
